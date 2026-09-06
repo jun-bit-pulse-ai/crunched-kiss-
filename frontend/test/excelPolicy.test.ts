@@ -1,8 +1,12 @@
 import assert from "assert";
 import {
   HEADER_PREVIEW_COLS,
+  MAX_CELL_STRING_CHARS,
   MAX_FIND_RESULTS,
   MAX_READ_CELLS,
+  MAX_WRITE_CELLS,
+  a1RangeCellCount,
+  assertReadAddress,
   assertWriteValues,
   countCells,
   headerPreviewWidth,
@@ -80,6 +84,39 @@ describe("assertWriteValues", () => {
     assert.strictEqual(assertWriteValues(["Hello"]), false);
     assert.strictEqual(assertWriteValues([]), false);
     assert.strictEqual(assertWriteValues(null), false);
+  });
+
+  it("rejects objects, NaN, and oversized grids", () => {
+    assert.strictEqual(assertWriteValues([[{ a: 1 }]]), false);
+    assert.strictEqual(assertWriteValues([[Number.NaN]]), false);
+    const huge = Array.from({ length: MAX_WRITE_CELLS + 1 }, () => [1]);
+    assert.strictEqual(assertWriteValues(huge), false);
+    assert.strictEqual(assertWriteValues([["x".repeat(MAX_CELL_STRING_CHARS + 1)]]), false);
+  });
+});
+
+describe("a1RangeCellCount", () => {
+  it("counts a single cell and a bounded range", () => {
+    assert.strictEqual(a1RangeCellCount("A1"), 1);
+    assert.strictEqual(a1RangeCellCount("A1:B10"), 20);
+    assert.strictEqual(a1RangeCellCount("Budget!$C$2:$D$4"), 6);
+    assert.strictEqual(a1RangeCellCount("'Q1!'!B2"), 1);
+  });
+
+  it("rejects whole-column refs and junk", () => {
+    assert.strictEqual(a1RangeCellCount("A:A"), null);
+    assert.strictEqual(a1RangeCellCount("1:1"), null);
+    assert.strictEqual(a1RangeCellCount(""), null);
+    assert.strictEqual(a1RangeCellCount("Revenue"), null);
+  });
+});
+
+describe("assertReadAddress", () => {
+  it("allows a small A1 range and rejects a million-cell ask", () => {
+    assert.strictEqual(assertReadAddress("Sheet1!A1:D20"), true);
+    assert.strictEqual(assertReadAddress("A1:XFD1048576"), false);
+    assert.strictEqual(assertReadAddress(""), false);
+    assert.strictEqual(assertReadAddress(12), false);
   });
 });
 

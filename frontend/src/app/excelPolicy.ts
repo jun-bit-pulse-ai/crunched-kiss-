@@ -1,7 +1,22 @@
 export const MAX_READ_CELLS = 2000;
+export const MAX_WRITE_CELLS = 2000;
+export const MAX_CELL_STRING_CHARS = 32767;
 export const SELECTION_PREVIEW_CELLS = 50;
+export const EXCEL_MAX_COLS = 16384;
+export const EXCEL_MAX_ROWS = 1048576;
 
 export type CellValue = string | number | boolean | null;
+
+const A1_CELL = /^\$?([A-Za-z]{1,3})\$?([1-9]\d{0,6})$/;
+
+function isCellValue(value: unknown): value is CellValue {
+  return (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "boolean" ||
+    (typeof value === "number" && Number.isFinite(value))
+  );
+}
 
 export function countCells(rowCount: number, colCount: number): number {
   return Math.max(0, rowCount) * Math.max(0, colCount);
@@ -26,6 +41,62 @@ export function rowsWithinCellCap(
   return { rows, truncated: true };
 }
 
+/** A1 / $A$1 → 1-based row and column, or null when the token is not a cell. */
+export function parseA1Cell(token: string): { row: number; col: number } | null {
+  const match = A1_CELL.exec(token.trim());
+  if (!match) {
+    return null;
+  }
+  let col = 0;
+  for (const letter of match[1].toUpperCase()) {
+    col = col * 26 + (letter.charCodeAt(0) - 64);
+  }
+  const row = Number(match[2]);
+  if (col < 1 || col > EXCEL_MAX_COLS || row < 1 || row > EXCEL_MAX_ROWS) {
+    return null;
+  }
+  return { row, col };
+}
+
+/** Drop a sheet qualifier (`Budget!` or `'Q1!'!`) so only the A1 range remains. */
+export function stripSheetQualifier(address: string): string {
+  const trimmed = address.trim();
+  const bang = trimmed.lastIndexOf("!");
+  return bang === -1 ? trimmed : trimmed.slice(bang + 1).trim();
+}
+
+/**
+ * How many cells an A1 range names. Null means "not a bounded A1 range"
+ * (whole-column `A:A`, named ranges, junk).
+ */
+export function a1RangeCellCount(address: string): number | null {
+  const range = stripSheetQualifier(address);
+  if (!range) {
+    return null;
+  }
+  const parts = range.split(":");
+  if (parts.length === 1) {
+    return parseA1Cell(parts[0]) ? 1 : null;
+  }
+  if (parts.length !== 2) {
+    return null;
+  }
+  const start = parseA1Cell(parts[0]);
+  const end = parseA1Cell(parts[1]);
+  if (!start || !end) {
+    return null;
+  }
+  return countCells(Math.abs(end.row - start.row) + 1, Math.abs(end.col - start.col) + 1);
+}
+
+export function assertReadAddress(address: unknown, maxCells: number = MAX_READ_CELLS): address is string {
+  if (typeof address !== "string" || address.trim() === "") {
+    return false;
+  }
+  const cells = a1RangeCellCount(address);
+  return cells !== null && cells <= maxCells;
+}
+
 export function sliceValuesToCellCap<T>(
   values: T[][],
   maxCells: number = MAX_READ_CELLS
@@ -42,7 +113,25 @@ export function sliceValuesToCellCap<T>(
 }
 
 export function assertWriteValues(values: unknown): values is CellValue[][] {
-  return Array.isArray(values) && values.length > 0 && values.every((row) => Array.isArray(row));
+  if (!Array.isArray(values) || values.length === 0 || !values.every((row) => Array.isArray(row))) {
+    return false;
+  }
+  let cells = 0;
+  for (const row of values) {
+    for (const cell of row) {
+      if (!isCellValue(cell)) {
+        return false;
+      }
+      if (typeof cell === "string" && cell.length > MAX_CELL_STRING_CHARS) {
+        return false;
+      }
+      cells += 1;
+      if (cells > MAX_WRITE_CELLS) {
+        return false;
+      }
+    }
+  }
+  return cells > 0;
 }
 
 export const MAX_FIND_RESULTS = 50;
