@@ -14,7 +14,7 @@
 |---|---|---|
 | [CLAUDE_MACBOOK_PLAN.md](CLAUDE_MACBOOK_PLAN.md) | Native `tool_use`, pane-owned loop, `/api` proxy, `find`, 1M-cell demo, hour-2 tracer, TDD on pure logic, cut order, 15-min demo script | Opus-by-default, `yo office` as a hard gate, dual `addin/` rename |
 | [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) | Excel boundary, desktop-first / no Vercel, Mac WEF sideload, trunk (no long-lived branches), success criteria | JSON-in-text actions, one-shot `context` dict, `CORS *`, hardcoded key, four agents racing on the same contract, E2E last |
-| [ai-orchestrator-plan.md](ai-orchestrator-plan.md) | Timeouts, tool allowlist, max rounds, cheap-vs-expensive routing as a later idea | Building a Claude Code router; it is a different product |
+| `ai-orchestrator-plan.md` (draft, later deleted — not in this repo) | Timeouts, tool allowlist, max rounds, cheap-vs-expensive routing as a later idea | Building a Claude Code router; it is a different product |
 
 **Already shipped** on `feat/excel-taskpane-agent` (merge this to `main`): chat pane, `list_workbook_meta` / `read_range` / `write_range` / `get_selection`, 2,000-cell cap, 8-round limit, `.env` API key, backend + frontend unit tests, two HTTPS origins (`office-addin-dev-certs`).
 

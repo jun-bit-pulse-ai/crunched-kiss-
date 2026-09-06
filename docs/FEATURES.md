@@ -66,8 +66,8 @@
 
 | Feature | Status | Description |
 |---|---|---|
-| Backend pytest | ✅ Shipped | 14 tests: HTTP contract, tool schemas, cell caps, agent loop |
-| Frontend mocha | ✅ Shipped | 6 test suites: markdown, clarifying questions, suggestions, tool cards, API paths, demo prompts |
+| Backend pytest | ✅ Shipped | 24 tests: HTTP contract, tool schemas, cell/body caps, CORS, agent loop |
+| Frontend mocha | ✅ Shipped | 14 test files: agent loop, excel policy, storage, undo, markdown, clarifying questions, suggestions, tool cards, formula explainer, tour, ELI5, API paths, demo prompts, conversation |
 
 ## Future work
 

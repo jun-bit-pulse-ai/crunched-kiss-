@@ -2,7 +2,7 @@
 
 Each `T<N>-*.md` file is a complete, self-contained prompt for a fresh Claude Code agent (model in the table). The
 orchestrator (human, main Claude Code session) launches them in the order below, merges each branch into `main` after
-its acceptance check, and never lets two agents edit the same file. Full design and schedule: `../PLAN.md`.
+its acceptance check, and never lets two agents edit the same file. Full design and schedule: [`../FINAL_PLAN.md`](../FINAL_PLAN.md).
 Shared verbatim assets used by the prompts: `assets/contracts.ts`, `assets/client.ts`, `assets/CLAUDE.md`, `assets/TIMELOG.md`.
 
 ## DAG

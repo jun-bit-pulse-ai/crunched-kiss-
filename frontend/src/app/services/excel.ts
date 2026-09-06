@@ -7,11 +7,14 @@ import {
   assertWriteValues,
   headerPreviewWidth,
   limitAddresses,
+  rowsWithinCellCap,
   selectionLabel,
-  sliceValuesToCellCap,
   toHeaderPreview,
 } from "../excelPolicy";
 import type { CellValue } from "../excelPolicy";
+import { popSnapshot, pushSnapshot } from "../undoStack";
+
+export { canUndo, clearUndoStack, subscribe as subscribeUndoStack } from "../undoStack";
 
 export type SheetMeta = {
   name: string;
@@ -24,26 +27,8 @@ export type SheetMeta = {
   headerPreview: string[];
 };
 
-/** Snapshot of a range's values before a write, for undo. */
-type Snapshot = {
-  sheet: string;
-  address: string;
-  values: CellValue[][];
-};
-
-const MAX_UNDO_DEPTH = 10;
-const undoStack: Snapshot[] = [];
-
-export function canUndo(): boolean {
-  return undoStack.length > 0;
-}
-
-export function clearUndoStack(): void {
-  undoStack.length = 0;
-}
-
 export async function undoLastWrite(): Promise<{ sheet: string; address: string } | null> {
-  const snapshot = undoStack.pop();
+  const snapshot = popSnapshot();
   if (!snapshot) {
     return null;
   }
@@ -53,22 +38,6 @@ export async function undoLastWrite(): Promise<{ sheet: string; address: string 
     await context.sync();
   });
   return { sheet: snapshot.sheet, address: snapshot.address };
-}
-
-async function snapshotRange(sheet: string, address: string): Promise<void> {
-  await Excel.run(async (context) => {
-    const range = context.workbook.worksheets.getItem(sheet).getRange(address);
-    range.load("values");
-    await context.sync();
-    undoStack.push({
-      sheet,
-      address,
-      values: range.values as CellValue[][],
-    });
-    if (undoStack.length > MAX_UNDO_DEPTH) {
-      undoStack.shift();
-    }
-  });
 }
 
 export async function listWorkbookMeta(): Promise<{ sheets: SheetMeta[] }> {
@@ -124,18 +93,27 @@ export async function listWorkbookMeta(): Promise<{ sheets: SheetMeta[] }> {
 
 export async function readRange(sheet: string, address: string) {
   return Excel.run(async (context) => {
-    const range = context.workbook.worksheets.getItem(sheet).getRange(address);
-    range.load(["values", "formulas", "address", "rowCount", "columnCount"]);
+    const requested = context.workbook.worksheets.getItem(sheet).getRange(address);
+    requested.load(["rowCount", "columnCount"]);
     await context.sync();
-    const values = sliceValuesToCellCap(range.values as CellValue[][], MAX_READ_CELLS);
-    const formulas = sliceValuesToCellCap(range.formulas as CellValue[][], MAX_READ_CELLS);
+
+    const totalRows = requested.rowCount;
+    const totalCols = requested.columnCount;
+    const { rows, truncated } = rowsWithinCellCap(totalRows, totalCols, MAX_READ_CELLS);
+
+    // Clamp the range's SHAPE before loading it, so a huge requested address is
+    // never materialised across the Office.js bridge just to be sliced in JS.
+    const target = truncated ? requested.getAbsoluteResizedRange(rows, totalCols) : requested;
+    target.load(["values", "formulas", "address"]);
+    await context.sync();
+
     return {
-      address: range.address,
-      values: values.values,
-      formulas: formulas.values,
-      truncated: values.truncated,
-      total_rows: values.totalRows,
-      total_cols: values.totalCols,
+      address: target.address,
+      values: target.values as CellValue[][],
+      formulas: target.formulas as CellValue[][],
+      truncated,
+      total_rows: totalRows,
+      total_cols: totalCols,
     };
   });
 }
@@ -144,29 +122,49 @@ export async function writeRange(sheet: string, address: string, values: unknown
   if (!assertWriteValues(values)) {
     throw new Error("write_range requires a non-empty 2D values array");
   }
-  // Snapshot before overwriting so the user can undo.
-  await snapshotRange(sheet, address);
+  const rows = values.length;
+  const cols = values[0]?.length ?? 0;
+
   return Excel.run(async (context) => {
-    const range = context.workbook.worksheets.getItem(sheet).getRange(address);
-    range.values = values;
+    // "address" is documented as the top-left anchor, not necessarily a range already
+    // sized to match `values` — resize to the write's true extent so both the write
+    // and the undo snapshot cover every cell that is actually about to change.
+    const anchor = context.workbook.worksheets.getItem(sheet).getRange(address);
+    const target = cols > 0 ? anchor.getAbsoluteResizedRange(rows, cols) : anchor;
+    target.load(["values", "address"]);
     await context.sync();
-    return { ok: true, sheet, address };
+
+    // Snapshot and write in the same batch: if the write throws, sync() rejects
+    // before the snapshot is ever pushed, so a failed write can't leave a phantom
+    // undo entry.
+    pushSnapshot({ sheet, address: target.address, values: target.values as CellValue[][] });
+    target.values = values;
+    await context.sync();
+    return { ok: true, sheet, address: target.address };
   });
 }
 
 export async function getSelection() {
   return Excel.run(async (context) => {
-    const range = context.workbook.getSelectedRange();
-    range.load(["address", "values", "worksheet/name", "rowCount", "columnCount"]);
+    const selected = context.workbook.getSelectedRange();
+    selected.load(["rowCount", "columnCount", "worksheet/name"]);
     await context.sync();
-    const preview = sliceValuesToCellCap(range.values as CellValue[][], SELECTION_PREVIEW_CELLS);
+
+    const totalRows = selected.rowCount;
+    const totalCols = selected.columnCount;
+    const { rows, truncated } = rowsWithinCellCap(totalRows, totalCols, SELECTION_PREVIEW_CELLS);
+
+    const target = truncated ? selected.getAbsoluteResizedRange(rows, totalCols) : selected;
+    target.load(["address", "values"]);
+    await context.sync();
+
     return {
-      sheet: range.worksheet.name,
-      address: range.address,
-      preview: preview.values,
-      truncated: preview.truncated,
-      total_rows: preview.totalRows,
-      total_cols: preview.totalCols,
+      sheet: selected.worksheet.name,
+      address: target.address,
+      preview: target.values as CellValue[][],
+      truncated,
+      total_rows: totalRows,
+      total_cols: totalCols,
     };
   });
 }

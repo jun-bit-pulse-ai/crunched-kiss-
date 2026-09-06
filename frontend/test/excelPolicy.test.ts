@@ -7,6 +7,7 @@ import {
   countCells,
   headerPreviewWidth,
   limitAddresses,
+  rowsWithinCellCap,
   selectionLabel,
   sliceValuesToCellCap,
   toHeaderPreview,
@@ -43,6 +44,30 @@ describe("sliceValuesToCellCap", () => {
     assert.strictEqual(result.totalCols, 5);
     assert.ok(result.values.length * 5 <= MAX_READ_CELLS);
     assert.strictEqual(result.values.length, Math.floor(MAX_READ_CELLS / 5));
+  });
+});
+
+describe("rowsWithinCellCap", () => {
+  it("keeps every row when under the cap", () => {
+    const result = rowsWithinCellCap(10, 5, MAX_READ_CELLS);
+    assert.strictEqual(result.truncated, false);
+    assert.strictEqual(result.rows, 10);
+  });
+
+  it("clamps a 1,000,000-row range to a row count that fits the cap without loading it", () => {
+    // This is the shape check a huge `read_range` request must pass BEFORE any
+    // Excel.js load() call — it must never depend on the actual cell values.
+    const result = rowsWithinCellCap(1_000_000, 5, MAX_READ_CELLS);
+    assert.strictEqual(result.truncated, true);
+    assert.strictEqual(result.rows, Math.floor(MAX_READ_CELLS / 5));
+    assert.ok(result.rows * 5 <= MAX_READ_CELLS);
+  });
+
+  it("matches sliceValuesToCellCap's row math for consistency", () => {
+    const values = Array.from({ length: 500 }, (_, row) => [row, row, row, row, row]);
+    const sliced = sliceValuesToCellCap(values, MAX_READ_CELLS);
+    const shape = rowsWithinCellCap(500, 5, MAX_READ_CELLS);
+    assert.strictEqual(sliced.values.length, shape.rows);
   });
 });
 

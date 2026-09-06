@@ -17,25 +17,45 @@ type StorageData = {
   lru: string[]; // workbook keys in order of most-recently-used
 };
 
-function readStorage(): StorageData {
+export type ConversationStore = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+};
+
+function defaultStore(): ConversationStore | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    if (typeof localStorage !== "undefined") {
+      return localStorage;
+    }
+  } catch {
+    // Private mode or a non-browser test runner.
+  }
+  return null;
+}
+
+function emptyData(): StorageData {
+  return { version: SCHEMA_VERSION, conversations: {}, lru: [] };
+}
+
+function readStorage(store: ConversationStore | null): StorageData {
+  try {
+    const raw = store?.getItem(STORAGE_KEY);
     if (!raw) {
-      return { version: SCHEMA_VERSION, conversations: {}, lru: [] };
+      return emptyData();
     }
     const parsed = JSON.parse(raw) as StorageData;
     if (parsed.version !== SCHEMA_VERSION) {
-      return { version: SCHEMA_VERSION, conversations: {}, lru: [] };
+      return emptyData();
     }
     return parsed;
   } catch {
-    return { version: SCHEMA_VERSION, conversations: {}, lru: [] };
+    return emptyData();
   }
 }
 
-function writeStorage(data: StorageData): void {
+function writeStorage(store: ConversationStore | null, data: StorageData): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    store?.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // Storage full or private mode — silently fail.
   }
@@ -43,16 +63,17 @@ function writeStorage(data: StorageData): void {
 
 /** Build a workbook key from sheet names (fallback when file name is unavailable). */
 export function workbookKey(sheetNames: string[]): string {
-  return sheetNames.sort().join("\n");
+  return [...sheetNames].sort().join("\n");
 }
 
 export function saveConversation(
   sheetNames: string[],
   agentMessages: ChatMessage[],
-  visible: VisibleMessage[]
+  visible: VisibleMessage[],
+  store: ConversationStore | null = defaultStore()
 ): void {
   const key = workbookKey(sheetNames);
-  const data = readStorage();
+  const data = readStorage(store);
 
   data.conversations[key] = {
     version: SCHEMA_VERSION,
@@ -73,14 +94,15 @@ export function saveConversation(
     }
   }
 
-  writeStorage(data);
+  writeStorage(store, data);
 }
 
 export function loadConversation(
-  sheetNames: string[]
+  sheetNames: string[],
+  store: ConversationStore | null = defaultStore()
 ): { agentMessages: ChatMessage[]; visible: VisibleMessage[] } | null {
   const key = workbookKey(sheetNames);
-  const data = readStorage();
+  const data = readStorage(store);
   const conv = data.conversations[key];
   if (!conv || conv.version !== SCHEMA_VERSION) {
     return null;
@@ -88,10 +110,13 @@ export function loadConversation(
   return { agentMessages: conv.agentMessages, visible: conv.visible };
 }
 
-export function clearConversation(sheetNames: string[]): void {
+export function clearConversation(
+  sheetNames: string[],
+  store: ConversationStore | null = defaultStore()
+): void {
   const key = workbookKey(sheetNames);
-  const data = readStorage();
+  const data = readStorage(store);
   delete data.conversations[key];
   data.lru = data.lru.filter((k) => k !== key);
-  writeStorage(data);
+  writeStorage(store, data);
 }
