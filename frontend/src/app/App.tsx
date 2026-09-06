@@ -72,6 +72,9 @@ export default function App() {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#chat-thread">
+        Skip to conversation
+      </a>
       <header className="masthead">
         <div>
           <p className="eyebrow">Excel analyst</p>
@@ -80,22 +83,28 @@ export default function App() {
         <div className="masthead-row">
           <p className="conversation-label">{conversationLabel}</p>
           {showPromptChips(visible) ? null : (
-            <button type="button" className="new-chat" disabled={busy} onClick={resetChat}>
+            <button type="button" className="new-chat" disabled={busy} onClick={resetChat} aria-label="Start a new chat">
               New chat
             </button>
           )}
         </div>
-        <div className={`rule ${busy ? "rule-busy" : ""}`} />
+        <div className={`rule ${busy ? "rule-busy" : ""}`} aria-hidden="true" />
       </header>
-      <ChatThread messages={visible} status={status} />
-      {error ? <div className="banner">{error}</div> : null}
-      {selection ? (
-        <p className="selection-pill" title="Say “this selection” and Crunched will read this range">
-          Crunched can see {selection}
-        </p>
-      ) : null}
-      {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}
-      <Composer disabled={busy} onSend={send} />
+      <main className="pane">
+        <ChatThread messages={visible} status={status} />
+        {error ? (
+          <div className="banner" role="alert">
+            {error}
+          </div>
+        ) : null}
+        {selection ? (
+          <p className="selection-pill" title="Say “this selection” and Crunched will read this range">
+            Crunched can see {selection}
+          </p>
+        ) : null}
+        {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}
+        <Composer disabled={busy} onSend={send} />
+      </main>
     </div>
   );
 }

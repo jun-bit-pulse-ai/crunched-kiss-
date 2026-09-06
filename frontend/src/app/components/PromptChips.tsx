@@ -7,12 +7,12 @@ type PromptChipsProps = {
 
 export function PromptChips({ disabled, onPick }: PromptChipsProps) {
   return (
-    <div className="chips">
+    <nav className="chips" aria-label="Suggested prompts">
       {DEMO_CHIPS.map((chip) => (
         <button key={chip} type="button" className="chip" disabled={disabled} onClick={() => onPick(chip)}>
           {chip}
         </button>
       ))}
-    </div>
+    </nav>
   );
 }

@@ -111,6 +111,18 @@ cd frontend && npm test
 
 These cover the HTTP contract, tool schemas, cell/history caps, and API paths. Office.js and the React pane only run inside Excel, so they are hand-checked in the live demo rather than mocked.
 
+## Accessibility & readability
+
+The pane is a narrow Excel WebView. This pass is for people who use a screen reader, a keyboard, or just need the type to be easier to read. The copper/ledger look stays.
+
+**Screen reader.** The thread is a live log (`role="log"`) that announces new replies, tool cards, and status without re-reading the whole conversation. Send failures use `role="alert"`. Each tool card’s accessible name includes the summary (for example `Tool list_workbook_meta: Data 5000×200 · Budget 6×4`); errors are prefixed so color is not the only signal. Chat bubbles are headed You / Crunched. A skip link jumps past the masthead to the conversation. Markdown still renders as React elements, never `innerHTML`.
+
+**Keyboard.** Every control is a real button or a labeled field. Tab order is skip link → New chat → suggested prompts → message → Send. Enter sends; Shift+Enter makes a new line. Focus rings use the existing copper outline, including New chat and the skip link.
+
+**Reading comfort.** Body copy stays paper-on-ink. Muted labels and ledger/rust tool names were lightened so small type meets contrast. Chat bubbles, tool cards, chips, and the composer use a slightly larger size and looser line-height. The busy rule and spinner still yield to `prefers-reduced-motion`.
+
+**Cleanup.** Accidental Finder copies (`backend/app/main 2.py`, `backend/tests/test_http 2.py`, `frontend/webpack 2.config.js`) are gitignored and are not part of the repo. Plan docs stay.
+
 ## What was cut
 
 - Multi-tier Claude Code orchestrator as this product
