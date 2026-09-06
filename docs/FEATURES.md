@@ -5,7 +5,8 @@ The assignment is the chat loop, five tools, and the 2k / 8-round policy. Everyt
 | When | What |
 |---|---|
 | Hours 1–4 | Chat pane, five Office.js tools, FastAPI turn, 2k/8-round policy, one-origin proxy, million-cell demo |
-| After | Tool cards, undo, write-confirm, persistence, formula explainer, request limits, CI |
+| Week one | Tool cards, bounded history and requests, undo, write-confirm, persistence, CI, and pre-Office.js bounds checks |
+| Optional polish | Formula explainer; useful, but outside the core loop and shipping argument |
 | Cut | Clarifying buttons, follow-up chips, Markdown, tour / ELI5, leftover plan docs |
 
 ## Chat & Interaction
@@ -95,4 +96,3 @@ These were scoped, issued (#29–#31), and then closed as not planned for this t
 |---|---|---|---|
 | Streaming responses | #30 | Office.js add-ins are small; full messages are fast enough | Large model outputs where perceived latency matters |
 | Excel Online support | #31 | Desktop Excel has the full Office.js API; Online is a subset | User base that lives in browser-first Excel |
-

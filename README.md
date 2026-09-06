@@ -1,6 +1,6 @@
 # Crunched KISS
 
-[![test](https://github.com/jun-bit-pulse-ai/crunched-kiss-/actions/workflows/test.yml/badge.svg)](https://github.com/jun-bit-pulse-ai/crunched-kiss-/actions/workflows/test.yml)
+[![CI](https://github.com/jun-bit-pulse-ai/crunched-kiss-/actions/workflows/test.yml/badge.svg)](https://github.com/jun-bit-pulse-ai/crunched-kiss-/actions/workflows/test.yml)
 
 An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Claude asks for workbook data through tools; Office.js is the only Excel runtime. Large sheets stay usable because the model sees addresses and samples, never a whole used range.
 
@@ -170,7 +170,8 @@ cd backend && .venv/bin/pytest -q
 # Frontend tests (mocha + ts-node)
 cd frontend && npm test
 
-# GitHub Actions runs both on every push to main and on pull requests.
+# GitHub Actions runs backend tests, frontend tests, and a production build on
+# every push to main and on pull requests.
 
 # Generate a large test workbook
 python3 scripts/make_big_workbook.py   # → scripts/big.xlsx (gitignored)
@@ -196,6 +197,14 @@ python3 scripts/make_icons.py
 
 ## General Thoughts / Design Philosophy
 
+### Submission boundary
+
+The four-hour submission ended with the working Excel-to-Claude loop, five tools,
+the 2,000-cell / 8-round policy, and the million-cell demo. The later commits are
+deliberately separate hardening work, not part of the take-home time claim. They
+answer the next question an interviewer should ask—what would need to change
+before trusting writes—without changing the original architecture.
+
 ### Why KISS won
 
 The original plan included a multi-tier orchestrator, LangGraph, streaming, auth, Vercel deploy, and separate Agent/Reason modes. All of that was cut. What survived is a single Webpack pane, one FastAPI endpoint, and a loop that fits in two files (`agentClient.ts` and `agent.py`).
@@ -209,7 +218,8 @@ The assignment is the loop, the policy, and a live demo. Everything after that i
 | When | What |
 |---|---|
 | Hours 1–4 | Sideload + HTTPS, chat pane, five Office.js tools, FastAPI turn, 2k/8-round policy, one-origin `/api` proxy, `find`, README, million-cell demo |
-| After | Tool cards, history window, request limits, undo, persistence, formula explainer, write-confirm, CI, A1-before-Office.js checks |
+| Week one | Trust and resilience: visible tool cards, bounded history and requests, write-confirm, undo, reload persistence, CI, and pre-Office.js bounds checks |
+| Optional polish | Formula explainer; not part of the core loop or the shipping argument |
 
 ### What was deliberately left out
 
