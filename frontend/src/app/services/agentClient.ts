@@ -1,9 +1,9 @@
+import { CHAT_PATH } from "../apiPaths";
 import { truncateHistory } from "../conversation";
 import type { ChatMessage, ChatResponse, ToolCall, WorkbookHint } from "../types";
 import { dispatchExcelTool } from "./excel";
 
 export const MAX_TOOL_ROUNDS = 8;
-export const BACKEND_URL = "https://localhost:8000";
 
 function asToolUseMessage(toolCalls: ToolCall[]): ChatMessage {
   return {
@@ -22,7 +22,7 @@ async function postChat(
   workbookHint?: WorkbookHint,
   forceText = false
 ): Promise<ChatResponse> {
-  const response = await fetch(`${BACKEND_URL}/chat`, {
+  const response = await fetch(CHAT_PATH, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

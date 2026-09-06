@@ -92,11 +92,11 @@ Do these in order. Each task is one commit. Skip anything already true in the tr
 
 **Files:** [frontend/webpack.config.js](frontend/webpack.config.js), [frontend/src/app/services/agentClient.ts](frontend/src/app/services/agentClient.ts), [backend/app/main.py](backend/app/main.py), [scripts/dev-backend.sh](scripts/dev-backend.sh)
 
-- [ ] Point the pane at relative `/api/chat` (or keep `/chat` and proxy that path).
-- [ ] Proxy `/api` (or `/chat`, `/health`) to `http://127.0.0.1:8000`.
-- [ ] Run uvicorn **without** TLS on localhost; only webpack stays HTTPS.
-- [ ] `curl -sk https://localhost:3000/health` (or `/api/health`) returns `{"ok":true}`.
-- [ ] Commit: `feat: proxy API through the add-in origin`
+- [x] Point the pane at relative `/api/chat` (or keep `/chat` and proxy that path).
+- [x] Proxy `/api` (or `/chat`, `/health`) to `http://127.0.0.1:8000`.
+- [x] Run uvicorn **without** TLS on localhost; only webpack stays HTTPS.
+- [x] `curl -sk https://localhost:3000/api/health` returns `{"ok":true}`.
+- [x] Commit: `feat: proxy API through the add-in origin`
 
 ### Task 3: `find` + richer overview
 
