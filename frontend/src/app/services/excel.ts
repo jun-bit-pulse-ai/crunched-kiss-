@@ -30,7 +30,8 @@ export async function listWorkbookMeta(): Promise<{ sheets: SheetMeta[] }> {
     await context.sync();
 
     const usedRanges = sheets.items.map((sheet) => {
-      const used = sheet.getUsedRangeOrNullObject();
+      // valuesOnly=true ignores formatted-but-empty cells that inflate used ranges.
+      const used = sheet.getUsedRangeOrNullObject(true);
       used.load(["address", "rowCount", "columnCount"]);
       return used;
     });
