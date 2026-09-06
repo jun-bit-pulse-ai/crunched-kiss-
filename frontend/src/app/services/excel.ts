@@ -1,12 +1,16 @@
 /* global Excel */
 
 import {
+  MAX_FIND_RESULTS,
   MAX_READ_CELLS,
   SELECTION_PREVIEW_CELLS,
   assertWriteValues,
+  headerPreviewWidth,
+  limitAddresses,
   sliceValuesToCellCap,
-  type CellValue,
+  toHeaderPreview,
 } from "../excelPolicy";
+import type { CellValue } from "../excelPolicy";
 
 export type SheetMeta = {
   name: string;
@@ -15,6 +19,8 @@ export type SheetMeta = {
     rowCount: number;
     columnCount: number;
   } | null;
+  /** First row of the used range, capped at HEADER_PREVIEW_COLS columns. */
+  headerPreview: string[];
 };
 
 export async function listWorkbookMeta(): Promise<{ sheets: SheetMeta[] }> {
@@ -30,9 +36,25 @@ export async function listWorkbookMeta(): Promise<{ sheets: SheetMeta[] }> {
     });
     await context.sync();
 
+    // Load only the first row, capped in width, so a 200-column sheet stays cheap.
+    const headerRows = usedRanges.map((used) => {
+      if (used.isNullObject) {
+        return null;
+      }
+      const width = headerPreviewWidth(used.columnCount);
+      if (width === 0) {
+        return null;
+      }
+      const header = used.getRow(0).getAbsoluteResizedRange(1, width);
+      header.load("values");
+      return header;
+    });
+    await context.sync();
+
     return {
       sheets: sheets.items.map((sheet, index) => {
         const used = usedRanges[index];
+        const header = headerRows[index];
         return {
           name: sheet.name,
           usedRange: used.isNullObject
@@ -42,6 +64,9 @@ export async function listWorkbookMeta(): Promise<{ sheets: SheetMeta[] }> {
                 rowCount: used.rowCount,
                 columnCount: used.columnCount,
               },
+          headerPreview: header
+            ? toHeaderPreview((header.values as CellValue[][])[0])
+            : [],
         };
       }),
     };
@@ -95,6 +120,59 @@ export async function getSelection() {
   });
 }
 
+export type FindResult = {
+  query: string;
+  matches: number;
+  addresses: string[];
+  truncated: boolean;
+  searched: string;
+};
+
+export async function find(
+  query: string,
+  sheet?: string,
+  matchCase = false,
+  completeMatch = false
+): Promise<FindResult> {
+  if (!query) {
+    throw new Error("find requires a non-empty query");
+  }
+  return Excel.run(async (context) => {
+    const worksheets = context.workbook.worksheets;
+    worksheets.load("items/name");
+    await context.sync();
+
+    const targets = sheet ? [worksheets.getItem(sheet)] : worksheets.items;
+    const hits = targets.map((worksheet) => {
+      const areas = worksheet.findAllOrNullObject(query, { completeMatch, matchCase });
+      areas.load(["cellCount", "areas/items/address"]);
+      return areas;
+    });
+    await context.sync();
+
+    let matches = 0;
+    const found: string[] = [];
+    for (const areas of hits) {
+      if (areas.isNullObject) {
+        continue;
+      }
+      matches += areas.cellCount;
+      for (const area of areas.areas.items) {
+        found.push(area.address);
+      }
+    }
+
+    const limited = limitAddresses(found, MAX_FIND_RESULTS);
+    return {
+      query,
+      matches,
+      addresses: limited.addresses,
+      truncated: limited.truncated,
+      searched: sheet ?? "all sheets",
+    };
+  });
+}
+
 export async function dispatchExcelTool(
   name: string,
   input: Record<string, unknown>
@@ -108,6 +186,13 @@ export async function dispatchExcelTool(
       return writeRange(String(input.sheet ?? ""), String(input.address ?? ""), input.values);
     case "get_selection":
       return getSelection();
+    case "find":
+      return find(
+        String(input.query ?? ""),
+        input.sheet === undefined ? undefined : String(input.sheet),
+        Boolean(input.match_case),
+        Boolean(input.complete_match)
+      );
     default:
       throw new Error(`Unknown Excel tool: ${name}`);
   }

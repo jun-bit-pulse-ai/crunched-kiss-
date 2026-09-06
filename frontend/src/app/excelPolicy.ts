@@ -30,3 +30,39 @@ export function sliceValuesToCellCap<T>(
 export function assertWriteValues(values: unknown): values is CellValue[][] {
   return Array.isArray(values) && values.length > 0 && values.every((row) => Array.isArray(row));
 }
+
+export const MAX_FIND_RESULTS = 50;
+export const HEADER_PREVIEW_COLS = 20;
+
+/** How many columns of a sheet's first row are worth showing as headers. */
+export function headerPreviewWidth(
+  columnCount: number,
+  cap: number = HEADER_PREVIEW_COLS
+): number {
+  return Math.max(0, Math.min(columnCount, cap));
+}
+
+/** First row to header strings, with trailing blanks dropped so wide sheets stay short. */
+export function toHeaderPreview(row: CellValue[] | undefined): string[] {
+  if (!row) {
+    return [];
+  }
+  const cells = row.map((cell) => (cell === null || cell === undefined ? "" : String(cell)));
+  let end = cells.length;
+  while (end > 0 && cells[end - 1] === "") {
+    end -= 1;
+  }
+  return cells.slice(0, end);
+}
+
+/** Cap a find result while still reporting how many matches really exist. */
+export function limitAddresses(
+  addresses: string[],
+  max: number = MAX_FIND_RESULTS
+): { addresses: string[]; truncated: boolean; total: number } {
+  return {
+    addresses: addresses.slice(0, max),
+    truncated: addresses.length > max,
+    total: addresses.length,
+  };
+}
