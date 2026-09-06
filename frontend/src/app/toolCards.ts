@@ -7,6 +7,19 @@ export type ToolCard = {
   error: boolean;
 };
 
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  list_workbook_meta: "Scanned workbook",
+  read_range: "Read range",
+  write_range: "Wrote range",
+  get_selection: "Read selection",
+  find: "Searched",
+};
+
+/** Human label for a tool card. `name` stays the raw tool id elsewhere (tests, aria-labels). */
+export function displayToolName(name: string): string {
+  return TOOL_DISPLAY_NAMES[name] ?? name;
+}
+
 type SheetMetaLike = {
   name?: unknown;
   usedRange?: { rowCount?: unknown; columnCount?: unknown } | null;

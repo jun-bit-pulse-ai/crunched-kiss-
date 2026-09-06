@@ -19,6 +19,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [selection, setSelection] = useState<string | null>(null);
+  const [focusToken, setFocusToken] = useState(0);
 
   useEffect(() => {
     const unsubscribe = watchSelection(setSelection);
@@ -28,7 +29,7 @@ export default function App() {
   const conversationLabel = useMemo(() => {
     return agentMessages.some((message) => message.role === "user" && typeof message.content === "string")
       ? "Working conversation"
-      : "No new conversation";
+      : "New conversation";
   }, [agentMessages]);
 
   function resetChat() {
@@ -37,6 +38,7 @@ export default function App() {
     setStatus(null);
     setError(null);
     setBusy(false);
+    setFocusToken((token) => token + 1);
   }
 
   async function send(text: string) {
@@ -87,7 +89,7 @@ export default function App() {
         </div>
         <div className={`rule ${busy ? "rule-busy" : ""}`} />
       </header>
-      <ChatThread messages={visible} status={status} />
+      <ChatThread messages={visible} status={status} onOptionSelect={send} optionsDisabled={busy} />
       {error ? <div className="banner">{error}</div> : null}
       {selection ? (
         <p className="selection-pill" title="Crunched can see this range if you refer to “this selection”">
@@ -95,7 +97,7 @@ export default function App() {
         </p>
       ) : null}
       {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}
-      <Composer disabled={busy} onSend={send} />
+      <Composer disabled={busy} onSend={send} focusToken={focusToken} />
     </div>
   );
 }
