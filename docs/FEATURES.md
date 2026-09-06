@@ -12,6 +12,7 @@
 | Demo prompt chips | ✅ Shipped | Empty-state suggestion buttons ("How big is this workbook?") |
 | Suggested follow-ups | ✅ Shipped | Context-aware chip buttons after each assistant reply |
 | Clarifying questions | ✅ Shipped | Multiple-choice buttons when the model is uncertain |
+| Conversation persistence | ✅ Shipped | `localStorage` keyed by workbook name so chats survive reloads |
 
 ## AI & Tools
 
@@ -26,6 +27,8 @@
 | Metadata-first policy | ✅ Shipped | Model sees sheet list + header preview before any data |
 | Formula detection | ✅ Shipped | Tool cards show "· formulas" tag when values ≠ formulas |
 | Large-sheet fixture | ✅ Shipped | 1M-cell test workbook (`scripts/big.xlsx`) |
+| Undo stack | ✅ Shipped | Snapshot cells before `write_range`; Undo button in header |
+| Formula explainer | ✅ Shipped | Select a cell → "Explain this formula" → plain-English breakdown |
 
 ## Excel Integration
 
@@ -66,13 +69,13 @@
 | Backend pytest | ✅ Shipped | 14 tests: HTTP contract, tool schemas, cell caps, agent loop |
 | Frontend mocha | ✅ Shipped | 6 test suites: markdown, clarifying questions, suggestions, tool cards, API paths, demo prompts |
 
-## Planned (not yet built)
+## Future work
 
-| Feature | Priority | Description |
-|---|---|---|
-| Undo stack | 🔜 #1 | Snapshot cells before `write_range`; Undo button |
-| Conversation persistence | 🔜 #2 | `localStorage` keyed by workbook name |
-| Formula explainer | 🔜 #3 | Select a cell → get plain-English formula breakdown |
-| Write-confirm dialog | 🔜 #4 | Review AI changes before applying |
-| Streaming responses | 🔜 #5 | Token-by-token display (currently full-message) |
-| Excel Online support | 🔜 #6 | Full Office.js API subset for web Excel |
+These were scoped, issued (#29–#31), and then closed as not planned for this take-home scope. They are solid next features for a production version.
+
+| Feature | GitHub issue | Why it was cut | What would make it come back |
+|---|---|---|---|
+| Write-confirm dialog | #29 | Adds UI friction for a demo where writes apply immediately | Production use on live financial models |
+| Streaming responses | #30 | Office.js add-ins are small; full messages are fast enough | Large model outputs where perceived latency matters |
+| Excel Online support | #31 | Desktop Excel has the full Office.js API; Online is a subset | User base that lives in browser-first Excel |
+

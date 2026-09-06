@@ -225,11 +225,18 @@ The original plan included a multi-tier orchestrator, LangGraph, streaming, auth
 
 **The reason it works:** Excel already has a runtime (Office.js). The AI doesn't need to own Excel — it just needs to ask for small pieces of data. The hard part is not the LLM; it's the policy that prevents the model from requesting a million cells. That policy lives in `tools.py` and is enforced in the pane, not the backend.
 
-### What I'd add next (in order)
+### What was built after the sprint
 
-1. **Undo stack** — Snapshot cells before `write_range`, expose an Undo button. Removes the fear of AI overwriting data.
-2. **Conversation persistence** — `localStorage` keyed by workbook name so chats survive reloads.
-3. **Formula explainer** — Select a cell → "Explain this formula" → Claude breaks it down.
+1. **Undo stack** ✅ — Snapshot cells before `write_range`, expose an Undo button in the header. Removes the fear of AI overwriting data. (#26)
+2. **Conversation persistence** ✅ — `localStorage` keyed by workbook name so chats survive reloads. (#27)
+3. **Formula explainer** ✅ — Select a cell → "Explain this formula" → Claude breaks it down in plain English. (#28)
+
+### What I'd add next (scoped in #29–#31, closed as not planned)
+
+4. **Write-confirm dialog** — Review AI changes before applying. Cut because it adds UI friction for a demo; first thing to add for production use on live financial models.
+5. **Streaming responses** — Token-by-token display. Cut because Office.js add-ins are small and full messages are fast enough.
+6. **Excel Online support** — Full Office.js API subset for web Excel. Cut because the target is desktop Excel on macOS.
+
 
 ### What was deliberately left out
 
