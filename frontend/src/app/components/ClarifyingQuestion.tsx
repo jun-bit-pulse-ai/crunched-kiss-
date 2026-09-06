@@ -1,9 +1,20 @@
+import { Markdown } from "./Markdown";
+
 export type Option = {
   letter: string;
   text: string;
 };
 
-const OPTION_REGEX = /^([A-D])\)\s+(.+)$/gm;
+// Optional leading ">" so the blockquote form in SYSTEM_PROMPT still parses.
+const OPTION_REGEX = /^[ \t]*(?:>[ \t]*)?([A-D])\)[ \t]+(.+?)[ \t]*$/gm;
+
+function stripBlockquotes(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => line.replace(/^[ \t]*>[ \t]?/, ""))
+    .join("\n")
+    .trim();
+}
 
 /**
  * Splits a "question, then A)/B)/C) options" reply into its parts. Returns null when the
@@ -20,7 +31,7 @@ export function parseOptions(text: string): { question: string; options: Option[
   }
 
   const firstOptionIndex = text.search(OPTION_REGEX);
-  const question = text.slice(0, firstOptionIndex).trim();
+  const question = stripBlockquotes(text.slice(0, firstOptionIndex));
   return { question, options };
 }
 
@@ -38,7 +49,11 @@ export function ClarifyingQuestion({ text, disabled, onSelect }: ClarifyingQuest
 
   return (
     <div className="clarifying-question">
-      {parsed.question ? <p className="clarifying-question-text">{parsed.question}</p> : null}
+      {parsed.question ? (
+        <div className="clarifying-question-text">
+          <Markdown text={parsed.question} />
+        </div>
+      ) : null}
       <div className="clarifying-question-options">
         {parsed.options.map((option) => (
           <button
