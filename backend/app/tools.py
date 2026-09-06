@@ -1,11 +1,13 @@
 MAX_READ_CELLS = 2000
+MAX_FIND_RESULTS = 50
 
 TOOLS: list[dict] = [
     {
         "name": "list_workbook_meta",
         "description": (
-            "List worksheets with used-range addresses and dimensions. "
-            "Call this first on an unfamiliar workbook. This is O(sheets), not O(cells)."
+            "List worksheets with used-range addresses, dimensions, and a header preview "
+            "(the first row, capped at 20 columns). Call this first on an unfamiliar "
+            "workbook. This is O(sheets), not O(cells)."
         ),
         "input_schema": {
             "type": "object",
@@ -56,6 +58,32 @@ TOOLS: list[dict] = [
         "input_schema": {
             "type": "object",
             "properties": {},
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "find",
+        "description": (
+            "Search for text and get back matching cell addresses, at most "
+            f"{MAX_FIND_RESULTS}. Use this to locate a label such as 'Revenue' or 'Total' "
+            "before reading, instead of scanning a large range. Searches every sheet "
+            "unless one is named."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Text to look for in cell contents"},
+                "sheet": {
+                    "type": "string",
+                    "description": "Restrict the search to one sheet. Omit to search all sheets.",
+                },
+                "match_case": {"type": "boolean", "description": "Case-sensitive search"},
+                "complete_match": {
+                    "type": "boolean",
+                    "description": "Match the whole cell rather than a substring",
+                },
+            },
+            "required": ["query"],
             "additionalProperties": False,
         },
     },
