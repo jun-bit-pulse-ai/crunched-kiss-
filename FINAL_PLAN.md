@@ -114,8 +114,6 @@ Do these in order. Each task is one commit. Skip anything already true in the tr
 - [x] Generate a ~1M-cell Data sheet plus a small Budget sheet with a planted formula error.
 - [x] Hand-check in Excel: "How big is this workbook?" must not `read_range` the whole Data sheet.
 - [x] Commit: `feat: 1M-cell workbook fixture`
-- [ ] Hand-check in Excel: “How big is this workbook?” must not `read_range` the whole Data sheet.
-- [x] Commit: `feat: 1M-cell workbook fixture`
 
 ### Task 5: README = walkthrough
 
@@ -142,20 +140,6 @@ Do these in order. Each task is one commit. Skip anything already true in the tr
 - [x] `main` has the working add-in; no required long-lived branch
 - [x] Task pane opens in desktop Excel over trusted HTTPS
 - [x] "What is in A1?" and "Write Hello to B1." work with a live key
-- [x] A huge used range does not send the whole range to the model
-- [x] Backend tests pass without Excel
-- [x] README is enough for the hiring call
-
-- [x] `main` has the working add-in; no required long-lived branch
-- [x] Task pane opens in desktop Excel over trusted HTTPS
-- [ ] "What is in A1?" and "Write Hello to B1." work with a live key
-- [x] A huge used range does not send the whole range to the model
-- [x] Backend tests pass without Excel
-- [x] README is enough for the hiring call
-
-- [x] `main` has the working add-in; no required long-lived branch
-- [ ] Task pane opens in desktop Excel over trusted HTTPS
-- [ ] “What is in A1?” and “Write Hello to B1.” work with a live key
 - [x] A huge used range does not send the whole range to the model
 - [x] Backend tests pass without Excel
 - [x] README is enough for the hiring call
