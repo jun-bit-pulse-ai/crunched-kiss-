@@ -4,6 +4,7 @@ import {
   MAX_FIND_RESULTS,
   MAX_READ_CELLS,
   SELECTION_PREVIEW_CELLS,
+  assertReadAddress,
   assertWriteValues,
   headerPreviewWidth,
   limitAddresses,
@@ -92,6 +93,12 @@ export async function listWorkbookMeta(): Promise<{ sheets: SheetMeta[] }> {
 }
 
 export async function readRange(sheet: string, address: string) {
+  if (!sheet.trim()) {
+    throw new Error("read_range requires a sheet name");
+  }
+  if (!assertReadAddress(address)) {
+    throw new Error(`read_range address must be an A1 range of at most ${MAX_READ_CELLS} cells`);
+  }
   return Excel.run(async (context) => {
     const requested = context.workbook.worksheets.getItem(sheet).getRange(address);
     requested.load(["rowCount", "columnCount"]);
@@ -119,8 +126,14 @@ export async function readRange(sheet: string, address: string) {
 }
 
 export async function writeRange(sheet: string, address: string, values: unknown) {
+  if (!sheet.trim()) {
+    throw new Error("write_range requires a sheet name");
+  }
+  if (!assertReadAddress(address)) {
+    throw new Error(`write_range address must be an A1 cell or range of at most ${MAX_READ_CELLS} cells`);
+  }
   if (!assertWriteValues(values)) {
-    throw new Error("write_range requires a non-empty 2D values array");
+    throw new Error("write_range requires a non-empty 2D values array of primitive cells");
   }
   const rows = values.length;
   const cols = values[0]?.length ?? 0;

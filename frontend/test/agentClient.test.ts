@@ -46,6 +46,8 @@ describe("friendlyHttpError", () => {
   it("maps common statuses to actionable messages", () => {
     assert.match(friendlyHttpError(404), /backend/i);
     assert.match(friendlyHttpError(401), /API key/i);
+    assert.match(friendlyHttpError(413), /too large or malformed/);
+    assert.match(friendlyHttpError(422), /too large or malformed/);
     assert.match(friendlyHttpError(500), /error/i);
   });
 });

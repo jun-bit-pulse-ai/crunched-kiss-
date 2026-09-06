@@ -35,6 +35,9 @@ export function friendlyHttpError(status: number): string {
   if (status === 401 || status === 403) {
     return "Crunched's Anthropic API key looks invalid. Check ANTHROPIC_API_KEY in .env and restart the backend.";
   }
+  if (status === 413 || status === 422) {
+    return "That request was too large or malformed. Try a shorter question or start a new chat.";
+  }
   if (status >= 500) {
     return "Crunched's backend hit an error processing that request. Check the backend terminal for details and try again.";
   }
