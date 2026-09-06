@@ -15,6 +15,7 @@ import {
   watchSelection,
 } from "./services/excel";
 import { parseSuggestions } from "./suggestions";
+import { clearConversation, loadConversation, saveConversation } from "./storage";
 import { toolCardsFromMessages } from "./toolCards";
 import { hasSeenTour, markTourSeen, TOUR_TARGETS } from "./tour";
 import type { ChatMessage, VisibleMessage, WorkbookHint } from "./types";
@@ -49,6 +50,29 @@ export default function App() {
     }
   }, []);
 
+  // Try to restore a persisted conversation for this workbook.
+  useEffect(() => {
+    let cancelled = false;
+    async function restore() {
+      try {
+        const meta = await listWorkbookMeta();
+        if (cancelled) return;
+        const sheetNames = meta.sheets.map((s) => s.name);
+        const restored = loadConversation(sheetNames);
+        if (restored) {
+          setAgentMessages(restored.agentMessages);
+          setVisible(restored.visible);
+        }
+      } catch {
+        // Workbook not available yet (e.g. browser preview) — ignore.
+      }
+    }
+    restore();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const eli5Text = useMemo(() => explainLikeFive(eli5InputFromVisible(visible)), [visible]);
 
   const conversationLabel = useMemo(() => {
@@ -56,6 +80,14 @@ export default function App() {
       ? "Working conversation"
       : "New conversation";
   }, [agentMessages]);
+
+  async function persist(sheetNames: string[], messages: ChatMessage[], vis: VisibleMessage[]) {
+    try {
+      saveConversation(sheetNames, messages, vis);
+    } catch {
+      // Storage errors are non-fatal.
+    }
+  }
 
   function resetChat() {
     setAgentMessages([]);
@@ -66,6 +98,12 @@ export default function App() {
     setFocusToken((token) => token + 1);
     clearUndoStack();
     setUndoToken((t) => t + 1);
+    // Clear persisted conversation for this workbook.
+    listWorkbookMeta()
+      .then((meta) => clearConversation(meta.sheets.map((s) => s.name)))
+      .catch(() => {
+        /* ignore */
+      });
   }
 
   async function send(text: string) {
@@ -73,13 +111,15 @@ export default function App() {
     setBusy(true);
     setVisible((current) => [...current, { id: newId(), kind: "text", role: "user", text }]);
     const nextHistory: ChatMessage[] = [...agentMessages, { role: "user", content: text }];
+    let sheetNames: string[] = [];
     try {
       // Office.js lives in the pane. The backend never opens the xlsx —
       // it only gets these sheet names as a hint so Claude can pick a tool.
       let hint: WorkbookHint | undefined;
       try {
         const meta = await listWorkbookMeta();
-        hint = meta.sheets.map((sheet) => sheet.name);
+        sheetNames = meta.sheets.map((sheet) => sheet.name);
+        hint = sheetNames;
       } catch {
         hint = undefined;
       }
@@ -89,8 +129,7 @@ export default function App() {
 
       // Parse follow-up suggestions from assistant text
       const parsed = parseSuggestions(result.text);
-      setVisible((current) => [
-        ...current,
+      const newVisible: VisibleMessage[] = [
         ...cards.map((card) => ({ kind: "tool" as const, ...card })),
         {
           id: newId(),
@@ -99,7 +138,13 @@ export default function App() {
           text: parsed?.text ?? result.text,
           suggestions: parsed?.suggestions,
         },
-      ]);
+      ];
+      setVisible((current) => [...current, ...newVisible]);
+
+      // Persist the conversation.
+      if (sheetNames.length > 0) {
+        await persist(sheetNames, result.messages, [...visible, { id: newId(), kind: "text", role: "user", text }, ...newVisible]);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
