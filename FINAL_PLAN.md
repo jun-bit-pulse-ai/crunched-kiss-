@@ -86,7 +86,7 @@ Do these in order. Each task is one commit. Skip anything already true in the tr
 
 - [x] Fast-forward / merge `feat/excel-taskpane-agent` into `main`.
 - [x] Confirm `cd backend && .venv/bin/pytest -q` and `cd frontend && npm test`.
-- [ ] Close the feature branch after it is on `main`.
+- [x] Close the feature branch after it is on `main`.
 
 ### Task 2: One origin — proxy `/api`
 
