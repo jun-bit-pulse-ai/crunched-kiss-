@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from app.agent import run_turn
+from app.agent import SYSTEM_PROMPT, run_turn
 from app.models import ChatRequest
 
 
@@ -33,6 +33,10 @@ def _tool_response(tool_id: str, name: str, tool_input: dict) -> SimpleNamespace
             SimpleNamespace(type="tool_use", id=tool_id, name=name, input=tool_input),
         ],
     )
+
+
+def test_system_prompt_asks_for_formulas_on_small_error_checks() -> None:
+    assert "values and formulas" in SYSTEM_PROMPT
 
 
 def test_text_response_maps_to_message() -> None:

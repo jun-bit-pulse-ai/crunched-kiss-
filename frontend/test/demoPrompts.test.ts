@@ -6,7 +6,7 @@ describe("DEMO_CHIPS", () => {
   it("matches the 15-minute demo script, not a missing Revenue model", () => {
     assert.deepStrictEqual([...DEMO_CHIPS], [
       "How big is this workbook?",
-      "Check the Budget sheet for errors",
+      "Read Budget!A1:D6 with formulas and list any errors",
       "Fix the hard-coded Gross profit in Budget!D4",
     ]);
   });

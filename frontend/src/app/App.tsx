@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
-import { Eli5Panel } from "./components/Eli5Panel";
-import { GuidedTour } from "./components/GuidedTour";
 import { PromptChips } from "./components/PromptChips";
 import { initialVisible, showPromptChips } from "./demoPrompts";
-import { eli5InputFromVisible, explainLikeFive } from "./eli5";
 import { buildExplainFormulaPrompt } from "./formulaExplainer";
 import { runAgent } from "./services/agentClient";
 import {
@@ -17,11 +14,10 @@ import {
   undoLastWrite,
   watchSelection,
 } from "./services/excel";
-import { parseSuggestions } from "./suggestions";
 import { clearConversation, loadConversation, saveConversation } from "./storage";
 import { toolCardsFromMessages } from "./toolCards";
-import { hasSeenTour, markTourSeen, TOUR_TARGETS } from "./tour";
 import type { ChatMessage, VisibleMessage, WorkbookHint } from "./types";
+import type { WritePreview } from "./writeConfirm";
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -34,12 +30,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [selection, setSelection] = useState<string | null>(null);
-  const [tourOpen, setTourOpen] = useState(false);
-  const [eli5Open, setEli5Open] = useState(false);
   const [focusToken, setFocusToken] = useState(0);
-  const showTourRef = useRef<HTMLButtonElement | null>(null);
-  // Subscribes directly to the undo stack so the button re-renders whenever it
-  // changes, from any call site — no manually-bumped counter to forget.
+  const writeResolvers = useRef(new Map<string, (apply: boolean) => void>());
   const canUndoNow = useSyncExternalStore(subscribeUndoStack, canUndo);
 
   useEffect(() => {
@@ -47,28 +39,19 @@ export default function App() {
     return unsubscribe;
   }, []);
 
-  // Starts from the pane, not Office.onReady — a browser preview still gets the tour.
-  useEffect(() => {
-    if (!hasSeenTour()) {
-      setTourOpen(true);
-    }
-  }, []);
-
-  // Try to restore a persisted conversation for this workbook.
   useEffect(() => {
     let cancelled = false;
     async function restore() {
       try {
         const meta = await listWorkbookMeta();
         if (cancelled) return;
-        const sheetNames = meta.sheets.map((s) => s.name);
-        const restored = loadConversation(sheetNames);
+        const restored = loadConversation(meta.sheets.map((sheet) => sheet.name));
         if (restored) {
           setAgentMessages(restored.agentMessages);
           setVisible(restored.visible);
         }
       } catch {
-        // Workbook not available yet (e.g. browser preview) — ignore.
+        // Workbook not available yet (e.g. browser preview).
       }
     }
     restore();
@@ -77,15 +60,13 @@ export default function App() {
     };
   }, []);
 
-  const eli5Text = useMemo(() => explainLikeFive(eli5InputFromVisible(visible)), [visible]);
-
   const conversationLabel = useMemo(() => {
     return agentMessages.some((message) => message.role === "user" && typeof message.content === "string")
       ? "Working conversation"
       : "New conversation";
   }, [agentMessages]);
 
-  async function persist(sheetNames: string[], messages: ChatMessage[], vis: VisibleMessage[]) {
+  function persist(sheetNames: string[], messages: ChatMessage[], vis: VisibleMessage[]) {
     try {
       saveConversation(sheetNames, messages, vis);
     } catch {
@@ -100,22 +81,50 @@ export default function App() {
     setError(null);
     setBusy(false);
     setFocusToken((token) => token + 1);
+    writeResolvers.current.forEach((resolve) => resolve(false));
+    writeResolvers.current.clear();
     clearUndoStack();
-    // Clear persisted conversation for this workbook.
     listWorkbookMeta()
-      .then((meta) => clearConversation(meta.sheets.map((s) => s.name)))
+      .then((meta) => clearConversation(meta.sheets.map((sheet) => sheet.name)))
       .catch(() => {
         /* ignore */
       });
   }
 
+  function confirmWrite(preview: WritePreview): Promise<boolean> {
+    const id = newId();
+    return new Promise((resolve) => {
+      writeResolvers.current.set(id, resolve);
+      setVisible((current) => [
+        ...current,
+        {
+          id,
+          kind: "write_confirm",
+          sheet: preview.sheet,
+          address: preview.address,
+          values: preview.values,
+          status: "pending",
+        },
+      ]);
+    });
+  }
+
+  function decideWrite(id: string, apply: boolean) {
+    const resolve = writeResolvers.current.get(id);
+    writeResolvers.current.delete(id);
+    setVisible((current) =>
+      current.map((message) =>
+        message.kind === "write_confirm" && message.id === id
+          ? { ...message, status: apply ? "applied" : "declined" }
+          : message
+      )
+    );
+    resolve?.(apply);
+  }
+
   async function send(text: string) {
     setError(null);
     setBusy(true);
-    // Capture the post-update list from inside the updater itself, rather than
-    // reading the `visible` closure later — that closure is whatever it was when
-    // `send` started and goes stale the moment any other update (e.g. Undo) lands
-    // while this request is in flight.
     let latestVisible: VisibleMessage[] = [];
     setVisible((current) => {
       latestVisible = [...current, { id: newId(), kind: "text", role: "user", text }];
@@ -124,8 +133,6 @@ export default function App() {
     const nextHistory: ChatMessage[] = [...agentMessages, { role: "user", content: text }];
     let sheetNames: string[] = [];
     try {
-      // Office.js lives in the pane. The backend never opens the xlsx —
-      // it only gets these sheet names as a hint so Claude can pick a tool.
       let hint: WorkbookHint | undefined;
       try {
         const meta = await listWorkbookMeta();
@@ -134,30 +141,22 @@ export default function App() {
       } catch {
         hint = undefined;
       }
-      const result = await runAgent(nextHistory, hint, setStatus);
+      const result = await runAgent(nextHistory, hint, {
+        onStatus: setStatus,
+        confirmWrite,
+      });
       const cards = toolCardsFromMessages(result.messages, nextHistory.length);
       setAgentMessages(result.messages);
-
-      // Parse follow-up suggestions from assistant text
-      const parsed = parseSuggestions(result.text);
-      const newVisible: VisibleMessage[] = [
-        ...cards.map((card) => ({ kind: "tool" as const, ...card })),
-        {
-          id: newId(),
-          kind: "text",
-          role: "assistant",
-          text: parsed?.text ?? result.text,
-          suggestions: parsed?.suggestions,
-        },
-      ];
       setVisible((current) => {
-        latestVisible = [...current, ...newVisible];
+        latestVisible = [
+          ...current,
+          ...cards.map((card) => ({ kind: "tool" as const, ...card })),
+          { id: newId(), kind: "text", role: "assistant", text: result.text },
+        ];
         return latestVisible;
       });
-
-      // Persist the conversation.
       if (sheetNames.length > 0) {
-        await persist(sheetNames, result.messages, latestVisible);
+        persist(sheetNames, result.messages, latestVisible);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -223,27 +222,6 @@ export default function App() {
           <p className="conversation-label">{conversationLabel}</p>
           <div className="masthead-actions">
             <button
-              ref={showTourRef}
-              type="button"
-              className="text-action"
-              aria-haspopup="dialog"
-              onClick={() => {
-                setEli5Open(false);
-                setTourOpen(true);
-              }}
-            >
-              Show tour
-            </button>
-            <button
-              type="button"
-              className="text-action"
-              aria-expanded={eli5Open}
-              aria-controls="eli5-panel"
-              onClick={() => setEli5Open((open) => !open)}
-            >
-              Explain like I&apos;m 5
-            </button>
-            <button
               type="button"
               className="undo-button"
               disabled={busy || !canUndoNow}
@@ -252,25 +230,14 @@ export default function App() {
             >
               Undo
             </button>
-            <button
-              type="button"
-              className="text-action"
-              data-tour={TOUR_TARGETS.newChat}
-              disabled={busy}
-              onClick={resetChat}
-            >
+            <button type="button" className="text-action" disabled={busy} onClick={resetChat}>
               New chat
             </button>
           </div>
         </div>
         <div className={`rule ${busy ? "rule-busy" : ""}`} />
       </header>
-      {eli5Open ? (
-        <div id="eli5-panel">
-          <Eli5Panel text={eli5Text} onClose={() => setEli5Open(false)} />
-        </div>
-      ) : null}
-      <ChatThread messages={visible} status={status} onOptionSelect={send} optionsDisabled={busy} />
+      <ChatThread messages={visible} status={status} onWriteDecision={decideWrite} />
       {error ? <div className="banner">{error}</div> : null}
       {selection ? (
         <p className="selection-pill" title="Say “this selection” and Crunched will read this range">
@@ -292,16 +259,6 @@ export default function App() {
           </button>
         </div>
       ) : null}
-      <GuidedTour
-        open={tourOpen}
-        onClose={(reason) => {
-          if (reason === "skip" || reason === "done") {
-            markTourSeen();
-          }
-          setTourOpen(false);
-          showTourRef.current?.focus();
-        }}
-      />
     </div>
   );
 }

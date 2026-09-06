@@ -37,7 +37,15 @@ export type VisibleText = {
   kind: "text";
   role: "user" | "assistant" | "system";
   text: string;
-  suggestions?: string[];
+};
+
+export type VisibleWriteConfirm = {
+  id: string;
+  kind: "write_confirm";
+  sheet: string;
+  address: string;
+  values: unknown;
+  status: "pending" | "applied" | "declined";
 };
 
 export type VisibleTool = {
@@ -48,6 +56,6 @@ export type VisibleTool = {
   error: boolean;
 };
 
-export type VisibleMessage = VisibleText | VisibleTool;
+export type VisibleMessage = VisibleText | VisibleTool | VisibleWriteConfirm;
 
 export type WorkbookHint = string[];

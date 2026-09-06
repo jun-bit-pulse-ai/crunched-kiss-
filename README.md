@@ -4,7 +4,7 @@ An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Cla
 
 **Key idea:** The AI never holds the spreadsheet. It requests small pieces (a sheet list, one range, a search result), reasons about them, optionally writes back, and replies in plain English. This works on a 1-million-cell workbook as well as a small one — Claude is never shown more than a few thousand cells at a time.
 
-![Crunched in Excel's task pane — chat, tool cards, and suggestion chips](docs/screenshot.png)
+![Crunched in Excel's task pane — chat and tool cards](docs/screenshot.png)
 
 ---
 
@@ -12,9 +12,8 @@ An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Cla
 
 - **Chat interface** inside Excel's task pane — ask questions in natural language
 - **Tool-use loop** — Claude reads, searches, and writes cells through structured tools
-- **Clarifying questions** — when the model is unsure, it presents 2–4 multiple-choice buttons instead of making you type
-- **Suggested follow-ups** — after each reply, clickable chip buttons suggest what to ask next
 - **Tool visibility** — every Excel operation appears as a card in the chat thread so nothing happens invisibly
+- **Write confirm + undo** — Apply / Don't write before a cell changes; Undo restores the last snapshot
 - **Large-sheet safe** — reads are capped at 2,000 cells; metadata is O(sheets), not O(cells)
 - **Live selection** — the pane shows your current Excel selection so you can say "this table"
 - **8-round cap** — per-question tool loop hard-limits at 8 rounds, then forces a text answer
@@ -160,32 +159,6 @@ Each tool the model uses becomes a visible card in the chat thread, so the demo 
 
 ---
 
-## How the clarifying questions work
-
-When the model detects ambiguity, the system prompt instructs it to ask a single multiple-choice question formatted like:
-
-```
-Which sheet would you like to work with?
-
-A) Budget — the 7-row financial model
-B) Data — the 5,000-row metrics table
-C) A new sheet
-```
-
-The frontend parses `A) …` `B) …` lines and renders them as clickable buttons. Clicking sends the option text back as a user message. If the model doesn't format with lettered options, it falls back to plain text — no breakage.
-
----
-
-## Guided tour and Explain like I'm 5
-
-The first time the pane opens in a session, a short skippable tour points at the chat thread, the demo chips, the composer, peek cards, and **New chat**. Press Esc to skip, or use Next / Back. The composer stays usable — the tour never disables it. “Tour seen” lives in `sessionStorage`, so a new Excel session (or a new tab) gets the tour again. **Show tour** in the header replays it for a hiring-call reviewer.
-
-**Explain like I'm 5** (header) restates the latest assistant reply and any peek cards in tiny words. That formatter is local and deterministic — it maps tool names to kid sentences (`list_workbook_meta` → “I peeked at the sheet names… I did not read every cell.”) and strips Markdown from the last answer. It does not call Anthropic, so the backend contract is unchanged.
-
-Neither feature needs Excel to start: the pane mounts without `Office.onReady`, and the tour runs from there.
-
----
-
 ## Development
 
 ```bash
@@ -209,11 +182,11 @@ python3 scripts/make_icons.py
 | `frontend/src/app/App.tsx` | Root component: message state, send loop, selection watcher |
 | `frontend/src/app/services/agentClient.ts` | Fetch loop: handles tool_calls ↔ tool_result for up to 8 rounds |
 | `frontend/src/app/services/excel.ts` | The only Office.js wrapper — all Excel I/O goes through here |
-| `frontend/src/app/components/ChatThread.tsx` | Renders messages, tool cards, and clarifying questions |
+| `frontend/src/app/components/ChatThread.tsx` | Renders messages, tool cards, and write-confirm |
 | `frontend/src/app/toolCards.ts` | Human-readable names and summaries for tool cards |
 | `backend/app/agent.py` | One Claude turn: system prompt + tool schema + response parsing |
 | `backend/app/tools.py` | Tool definitions, schemas, and the 2,000-cell read policy |
-| `backend/app/main.py` | FastAPI app: CORS, `/api/chat`, `/api/health` |
+| `backend/app/main.py` | FastAPI app: size-limit middleware, `/api/chat`, `/api/health` |
 
 ---
 
@@ -225,18 +198,14 @@ The original plan included a multi-tier orchestrator, LangGraph, streaming, auth
 
 **The reason it works:** Excel already has a runtime (Office.js). The AI doesn't need to own Excel — it just needs to ask for small pieces of data. The hard part is not the LLM; it's the policy that prevents the model from requesting a million cells. That policy lives in `tools.py` and is enforced in the pane, not the backend.
 
-### What was built after the sprint
+### Four hours vs after
 
-1. **Undo stack** ✅ — Snapshot cells before `write_range`, expose an Undo button in the header. Removes the fear of AI overwriting data. (#26)
-2. **Conversation persistence** ✅ — `localStorage` keyed by workbook name so chats survive reloads. (#27)
-3. **Formula explainer** ✅ — Select a cell → "Explain this formula" → Claude breaks it down in plain English. (#28)
+The assignment is the loop, the policy, and a live demo. Everything after that is week-one polish — say so in the interview.
 
-### What I'd add next (scoped in #29–#31, closed as not planned)
-
-4. **Write-confirm dialog** — Review AI changes before applying. Cut because it adds UI friction for a demo; first thing to add for production use on live financial models.
-5. **Streaming responses** — Token-by-token display. Cut because Office.js add-ins are small and full messages are fast enough.
-6. **Excel Online support** — Full Office.js API subset for web Excel. Cut because the target is desktop Excel on macOS.
-
+| When | What |
+|---|---|
+| Hours 1–4 | Sideload + HTTPS, chat pane, five Office.js tools, FastAPI turn, 2k/8-round policy, one-origin `/api` proxy, `find`, README, million-cell demo |
+| After | Tool cards, history window, request limits, undo, persistence, formula explainer, write-confirm, CI |
 
 ### What was deliberately left out
 
@@ -247,7 +216,11 @@ The original plan included a multi-tier orchestrator, LangGraph, streaming, auth
 | Streaming responses | Office.js add-ins are small; full messages are fast enough |
 | Auth / login | It's a local desktop add-in; the API key is in `.env` |
 | Vercel / cloud deploy | The backend must talk to localhost Excel; cloud doesn't help |
-| Write-confirm dialogs | Good idea for real users, but adds UI friction for a demo |
+| Write-confirm dialogs (first cut) | Shipped as Apply / Don't write; a richer diff can wait |
+| Clarifying-question buttons | Extra UI; the model can ask in plain text |
+| Follow-up suggestion chips | Demo chips on the empty state are enough |
+| Markdown chat rendering | Plain text is enough for a 15-minute demo |
+| Guided tour / ELI5 | Interview decoration, not the assignment |
 | Excel Online primary | Desktop Excel has the full Office.js API; Online is a subset |
 
 ### Trunk-based workflow
@@ -268,9 +241,7 @@ python3 scripts/make_big_workbook.py
 open scripts/big.xlsx
 ```
 
-Start the backend and dev server as in Setup, then open **Crunched** on the Home tab.
-
-A new Excel session opens the guided tour first. Either walk it as your opening beat or press **Esc** to skip; the three prompts below are buttons underneath it, so the rest of the demo needs no typing.
+Start the backend and dev server as in Setup, then open **Crunched** on the Home tab. The empty pane offers the three prompts below as buttons, so you can drive the whole demo without typing.
 
 `Budget` is six rows carrying two deliberate mistakes: `D4` is a hard-coded `1000` where its neighbours are formulas, and the `Per unit` row divides by empty cells, giving `#DIV/0!`. `Data` is 5,000 × 200.
 
@@ -282,7 +253,7 @@ One `list_workbook_meta` card appears, reading `Data 5000×200 · Budget 6×4`. 
 
 ### 2. Finding the error (about 4 minutes)
 
-Ask **"Check the Budget sheet for errors."**
+Ask **"Read Budget!A1:D6 with formulas and list any errors."**
 
 Claude locates the labels, reads the small block with formulas, and reports the hard-coded `Budget!D4` and the `#DIV/0!` row. The `read_range` card is tagged `· formulas`.
 
@@ -302,7 +273,7 @@ Excel never lives in Python. Tools only run inside Excel's WebView.
 
 ### 5. What is missing, and why (about 2 minutes)
 
-See **What was cut** above. The one worth naming aloud is the write-confirm dialog: writes apply immediately today. For a real user editing a live model that is the first thing to add, and it was cut deliberately rather than overlooked.
+See **What was cut** above. Writes now pause for Apply / Don't write, and Undo restores the last snapshot. Persistence across reload is the next real-user gap.
 
 ---
 
@@ -314,7 +285,7 @@ See **What was cut** above. The one worth naming aloud is the write-confirm dial
 | 2 | Chat UI, Office.js wrappers, and the first `read_range`. |
 | 3 | FastAPI backend, tool-use contract, and pytest suite. |
 | 4 | One-origin `/api` proxy, `find` tool, README, and the live demo. |
-| After | Markdown rendering (#17), history windowing (#18), tool cards (#14), clarifying questions (#21), UX quick wins (#24), suggested follow-ups. |
+| After | Tool cards, history window, request limits, undo, write-confirm. Clarifying buttons, follow-up chips, Markdown, tour, and ELI5 were cut for scope. |
 
 ---
 

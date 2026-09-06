@@ -5,7 +5,7 @@ export const WELCOME =
 
 export const DEMO_CHIPS = [
   "How big is this workbook?",
-  "Check the Budget sheet for errors",
+  "Read Budget!A1:D6 with formulas and list any errors",
   "Fix the hard-coded Gross profit in Budget!D4",
 ] as const;
 

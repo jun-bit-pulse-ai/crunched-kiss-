@@ -5,13 +5,10 @@
 | Feature | Status | Description |
 |---|---|---|
 | Natural language chat | ✅ Shipped | Type questions in Excel's task pane sidebar |
-| Markdown rendering | ✅ Shipped | Bold, italic, code, lists, tables in chat bubbles |
 | Chat autoscroll | ✅ Shipped | Thread auto-scrolls to newest message |
 | New chat button | ✅ Shipped | Clear history and start fresh |
 | Composer auto-focus | ✅ Shipped | Textarea focuses on mount and after "New chat" |
 | Demo prompt chips | ✅ Shipped | Empty-state suggestion buttons ("How big is this workbook?") |
-| Suggested follow-ups | ✅ Shipped | Context-aware chip buttons after each assistant reply |
-| Clarifying questions | ✅ Shipped | Multiple-choice buttons when the model is uncertain |
 | Conversation persistence | ✅ Shipped | `localStorage` keyed by workbook name so chats survive reloads |
 
 ## AI & Tools
@@ -37,6 +34,8 @@
 | Office.js runtime | ✅ Shipped | All Excel I/O through `frontend/src/app/services/excel.ts` |
 | Live selection | ✅ Shipped | Pane shows current Excel selection as a pill |
 | Write validation | ✅ Shipped | `write_range` validated before `Excel.run` |
+| Write confirm | ✅ Shipped | Apply / Don't write before any AI write lands |
+| Undo stack | ✅ Shipped | Snapshot cells before `write_range`; Undo button |
 | Sideload manifest | ✅ Shipped | `manifest.xml` for desktop Excel on macOS |
 | HTTPS dev server | ✅ Shipped | Webpack on `https://localhost:3000` with trusted certs |
 | One-origin proxy | ✅ Shipped | `/api/*` proxied to uvicorn — no CORS needed |
@@ -66,8 +65,17 @@
 
 | Feature | Status | Description |
 |---|---|---|
-| Backend pytest | ✅ Shipped | 24 tests: HTTP contract, tool schemas, cell/body caps, CORS, agent loop |
-| Frontend mocha | ✅ Shipped | 14 test files: agent loop, excel policy, storage, undo, markdown, clarifying questions, suggestions, tool cards, formula explainer, tour, ELI5, API paths, demo prompts, conversation |
+| Backend pytest | ✅ Shipped | HTTP contract, tool schemas, cell caps, agent loop, request limits |
+| Frontend mocha | ✅ Shipped | Policy, storage, tool cards, demo chips, undo, write confirm, formula explainer |
+
+## Cut (on purpose)
+
+| Feature | Why |
+|---|---|
+| Clarifying-question buttons | Model can ask in prose; extra parser UI |
+| Follow-up suggestion chips | Empty-state demo chips already drive the walkthrough |
+| Markdown chat rendering | Plain text is enough for the demo |
+| Guided tour / ELI5 | Interview decoration |
 
 ## Future work
 
@@ -75,7 +83,6 @@ These were scoped, issued (#29–#31), and then closed as not planned for this t
 
 | Feature | GitHub issue | Why it was cut | What would make it come back |
 |---|---|---|---|
-| Write-confirm dialog | #29 | Adds UI friction for a demo where writes apply immediately | Production use on live financial models |
 | Streaming responses | #30 | Office.js add-ins are small; full messages are fast enough | Large model outputs where perceived latency matters |
 | Excel Online support | #31 | Desktop Excel has the full Office.js API; Online is a subset | User base that lives in browser-first Excel |
 

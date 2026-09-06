@@ -1,32 +1,46 @@
 import { useEffect, useRef } from "react";
 import type { VisibleMessage } from "../types";
-import { Markdown } from "./Markdown";
+import { writePreviewSummary } from "../writeConfirm";
 import { displayToolName } from "../toolCards";
-import { ClarifyingQuestion, parseOptions } from "./ClarifyingQuestion";
 
 type ChatThreadProps = {
   messages: VisibleMessage[];
   status?: string | null;
-  /** Called with the picked option's text (e.g. "A) Budget") when a clarifying-question button is clicked. */
-  onOptionSelect?: (optionText: string) => void;
-  /** Disable option buttons while a request is already in flight. */
-  optionsDisabled?: boolean;
+  onWriteDecision?: (id: string, apply: boolean) => void;
 };
 
-export function ChatThread({ messages, status, onOptionSelect, optionsDisabled }: ChatThreadProps) {
+export function ChatThread({ messages, status, onWriteDecision }: ChatThreadProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  // Key on length + status, not array identity, so this does not fire every render.
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length, status]);
 
   return (
-    <div className="thread" data-tour="thread" aria-live="polite">
-      {/* Anchor for the tour even when no peek cards have landed yet. */}
-      <span className="tour-tools-anchor" data-tour="tools" aria-hidden="true" />
+    <div className="thread" aria-live="polite">
       {messages.map((message) =>
-        message.kind === "tool" ? (
+        message.kind === "write_confirm" ? (
+          <article key={message.id} className="write-confirm" aria-label={`Write ${writePreviewSummary(message)}`}>
+            <p className="write-confirm-title">
+              Crunched wants to write {writePreviewSummary(message)}
+            </p>
+            <pre className="write-confirm-values">{JSON.stringify(message.values, null, 2)}</pre>
+            {message.status === "pending" && onWriteDecision ? (
+              <div className="write-confirm-actions">
+                <button type="button" className="option-button" onClick={() => onWriteDecision(message.id, true)}>
+                  Apply
+                </button>
+                <button type="button" className="option-button" onClick={() => onWriteDecision(message.id, false)}>
+                  Don&apos;t write
+                </button>
+              </div>
+            ) : (
+              <p className="write-confirm-status">
+                {message.status === "applied" ? "Applied" : "Not written"}
+              </p>
+            )}
+          </article>
+        ) : message.kind === "tool" ? (
           <article
             key={message.id}
             className={`tool-card${message.error ? " tool-card-error" : ""}`}
@@ -39,34 +53,10 @@ export function ChatThread({ messages, status, onOptionSelect, optionsDisabled }
             <span className="tool-card-name">{displayToolName(message.name)}</span>
             <span className="tool-card-summary">{message.summary}</span>
           </article>
-        ) : message.role === "assistant" && onOptionSelect && parseOptions(message.text) ? (
-          <article key={message.id} className="bubble bubble-assistant">
-            <ClarifyingQuestion text={message.text} disabled={optionsDisabled} onSelect={onOptionSelect} />
-          </article>
         ) : (
-          <div key={message.id} className="message-group">
-            <article className={`bubble bubble-${message.role}`}>
-              <Markdown text={message.text} />
-            </article>
-            {message.role === "assistant" &&
-            message.suggestions &&
-            message.suggestions.length > 0 &&
-            onOptionSelect ? (
-              <div className="suggestion-chips">
-                {message.suggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    className="suggestion-chip"
-                    disabled={optionsDisabled}
-                    onClick={() => onOptionSelect(suggestion)}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <article key={message.id} className={`bubble bubble-${message.role}`}>
+            <p className="bubble-text">{message.text}</p>
+          </article>
         )
       )}
       {status ? (

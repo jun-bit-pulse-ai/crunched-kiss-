@@ -1,22 +1,31 @@
 import { CHAT_PATH } from "../apiPaths";
 import { truncateHistory } from "../conversation";
 import type { ChatMessage, ChatResponse, ToolCall, WorkbookHint } from "../types";
+import { WRITE_DECLINED, writePreview, type WritePreview } from "../writeConfirm";
 import { dispatchExcelTool } from "./excel";
 
 export const MAX_TOOL_ROUNDS = 8;
 
-// Mirrors backend/app/limits.py's MAX_BODY_BYTES. The backend correctly rejects an
-// oversized body with a 413 *before* reading it, which means the webpack dev-server
-// proxy sees the connection reset mid-upload and reports its own opaque 500 instead
-// (see issue #32) — so the friendly message never reaches the user on the only path
-// the pane actually uses. Checking here means a too-large request never leaves the
-// browser in the first place.
+// Mirrors backend/app/limits.py's MAX_BODY_BYTES. The backend rejects an oversized
+// body with 413 before reading it; webpack then reports an opaque 500. Check here
+// so a too-large request never leaves the browser.
 export const MAX_REQUEST_BYTES = 1_048_576;
 
 /** UTF-8 byte length of a request body, matching how the backend measures Content-Length. */
 export function byteLength(body: string): number {
   return new TextEncoder().encode(body).length;
 }
+
+export type RunAgentOptions = {
+  onStatus?: (status: string) => void;
+  confirmWrite?: (preview: WritePreview) => Promise<boolean>;
+  dispatch?: (name: string, input: Record<string, unknown>) => Promise<unknown>;
+  chat?: (
+    messages: ChatMessage[],
+    workbookHint?: WorkbookHint,
+    forceText?: boolean
+  ) => Promise<ChatResponse>;
+};
 
 /** Turn a raw HTTP status into a message a spreadsheet user (not a developer) can act on. */
 export function friendlyHttpError(status: number): string {
@@ -76,30 +85,61 @@ async function postChat(
   return (await response.json()) as ChatResponse;
 }
 
+function resolveOptions(
+  onStatusOrOptions?: ((status: string) => void) | RunAgentOptions
+): RunAgentOptions {
+  if (typeof onStatusOrOptions === "function") {
+    return { onStatus: onStatusOrOptions };
+  }
+  return onStatusOrOptions ?? {};
+}
+
 export async function runAgent(
   messages: ChatMessage[],
   workbookHint?: WorkbookHint,
-  onStatus?: (status: string) => void
+  onStatusOrOptions?: ((status: string) => void) | RunAgentOptions
 ): Promise<{ messages: ChatMessage[]; text: string }> {
+  const options = resolveOptions(onStatusOrOptions);
+  const chat = options.chat ?? postChat;
+  const dispatch = options.dispatch ?? dispatchExcelTool;
   const next = [...messages];
 
+  const finish = (result: ChatResponse) => {
+    if (result.type !== "message") {
+      throw new Error("Model kept requesting tools after the round limit");
+    }
+    next.push({ role: "assistant", content: result.text });
+    return { messages: next, text: result.text };
+  };
+
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-    onStatus?.(round === 0 ? "Thinking…" : `Workbook step ${round}…`);
-    const result = await postChat(next, workbookHint, false);
+    options.onStatus?.(round === 0 ? "Thinking…" : `Workbook step ${round}…`);
+    const result = await chat(next, workbookHint, false);
     if (result.type === "error") {
       throw new Error(result.message);
     }
     if (result.type === "message") {
-      next.push({ role: "assistant", content: result.text });
-      return { messages: next, text: result.text };
+      return finish(result);
     }
 
     next.push(asToolUseMessage(result.tool_calls));
     const toolResults = [];
     for (const call of result.tool_calls) {
-      onStatus?.(`${call.name}`);
+      options.onStatus?.(`${call.name}`);
       try {
-        const output = await dispatchExcelTool(call.name, call.input);
+        if (call.name === "write_range" && options.confirmWrite) {
+          const allowed = await options.confirmWrite(writePreview(call.input));
+          if (!allowed) {
+            toolResults.push({
+              type: "tool_result" as const,
+              tool_use_id: call.id,
+              content: WRITE_DECLINED,
+              is_error: true,
+            });
+            continue;
+          }
+        }
+        const output = await dispatch(call.name, call.input);
         toolResults.push({
           type: "tool_result" as const,
           tool_use_id: call.id,
@@ -118,18 +158,14 @@ export async function runAgent(
     next.push({ role: "user", content: toolResults });
   }
 
-  onStatus?.("Wrapping up…");
+  options.onStatus?.("Wrapping up…");
   next.push({
     role: "user",
     content: "Tool round limit reached. Reply with what you know so far. Do not call more tools.",
   });
-  const forced = await postChat(next, workbookHint, true);
+  const forced = await chat(next, workbookHint, true);
   if (forced.type === "error") {
     throw new Error(forced.message);
   }
-  if (forced.type !== "message") {
-    throw new Error("Model kept requesting tools after the round limit");
-  }
-  next.push({ role: "assistant", content: forced.text });
-  return { messages: next, text: forced.text };
+  return finish(forced);
 }

@@ -27,7 +27,6 @@ export function Composer({ disabled, onSend, focusToken }: ComposerProps) {
   return (
     <form
       className="composer"
-      data-tour="composer"
       onSubmit={(event) => {
         event.preventDefault();
         submit();
