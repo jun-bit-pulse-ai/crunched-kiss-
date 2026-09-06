@@ -168,6 +168,8 @@ cd backend && .venv/bin/pytest -q
 # Frontend tests (mocha + ts-node)
 cd frontend && npm test
 
+# GitHub Actions runs both on every push to main and on pull requests.
+
 # Generate a large test workbook
 python3 scripts/make_big_workbook.py   # → scripts/big.xlsx (gitignored)
 
@@ -205,7 +207,7 @@ The assignment is the loop, the policy, and a live demo. Everything after that i
 | When | What |
 |---|---|
 | Hours 1–4 | Sideload + HTTPS, chat pane, five Office.js tools, FastAPI turn, 2k/8-round policy, one-origin `/api` proxy, `find`, README, million-cell demo |
-| After | Tool cards, history window, request limits, undo, persistence, formula explainer, write-confirm, CI |
+| After | Tool cards, history window, request limits, undo, persistence, formula explainer, write-confirm, CI, A1-before-Office.js checks |
 
 ### What was deliberately left out
 
@@ -221,6 +223,7 @@ The assignment is the loop, the policy, and a live demo. Everything after that i
 | Follow-up suggestion chips | Demo chips on the empty state are enough |
 | Markdown chat rendering | Plain text is enough for a 15-minute demo |
 | Guided tour / ELI5 | Interview decoration, not the assignment |
+| Draft plan docs (`FINAL_PLAN`, `IMPLEMENTATION_PLAN`, …) | They described a second product and contradicted the shipped loop |
 | Excel Online primary | Desktop Excel has the full Office.js API; Online is a subset |
 
 ### Trunk-based workflow
@@ -261,7 +264,7 @@ Claude locates the labels, reads the small block with formulas, and reports the 
 
 Ask **"Fix the hard-coded Gross profit in Budget!D4."**
 
-Cards appear in order: `list_workbook_meta`, `find` (`"Gross profit"`), `read_range` (`Budget!A1:D6 · formulas`), `write_range` (`Budget!D4`). Claude replies that `D4` now holds `=D2-D3`. Click the cell to confirm.
+Cards appear in order: `list_workbook_meta`, `find` (`"Gross profit"`), `read_range` (`Budget!A1:D6 · formulas`), then an Apply / Don't write card for `Budget!D4`. Click **Apply**. The `write_range` card follows. Claude replies that `D4` now holds `=D2-D3`. Click the cell to confirm.
 
 ### 4. The code (about 4 minutes)
 
@@ -273,7 +276,7 @@ Excel never lives in Python. Tools only run inside Excel's WebView.
 
 ### 5. What is missing, and why (about 2 minutes)
 
-See **What was cut** above. Writes now pause for Apply / Don't write, and Undo restores the last snapshot. Persistence across reload is the next real-user gap.
+See **What was cut** above. Writes pause for Apply / Don't write, Undo restores the last snapshot, and the thread survives reload. Streaming and Excel Online are the leftover product gaps — not this demo.
 
 ---
 
@@ -285,7 +288,7 @@ See **What was cut** above. Writes now pause for Apply / Don't write, and Undo r
 | 2 | Chat UI, Office.js wrappers, and the first `read_range`. |
 | 3 | FastAPI backend, tool-use contract, and pytest suite. |
 | 4 | One-origin `/api` proxy, `find` tool, README, and the live demo. |
-| After | Tool cards, history window, request limits, undo, write-confirm. Clarifying buttons, follow-up chips, Markdown, tour, and ELI5 were cut for scope. |
+| After | Tool cards, history window, request limits, undo, persistence, formula explainer, write-confirm, CI. Draft plan docs, clarifying buttons, follow-up chips, Markdown, tour, and ELI5 were cut for scope. |
 
 ---
 

@@ -1,5 +1,13 @@
 # Feature List
 
+The assignment is the chat loop, five tools, and the 2k / 8-round policy. Everything else is week-one polish or an intentional cut — same split as the README.
+
+| When | What |
+|---|---|
+| Hours 1–4 | Chat pane, five Office.js tools, FastAPI turn, 2k/8-round policy, one-origin proxy, million-cell demo |
+| After | Tool cards, undo, write-confirm, persistence, formula explainer, request limits, CI |
+| Cut | Clarifying buttons, follow-up chips, Markdown, tour / ELI5, leftover plan docs |
+
 ## Chat & Interaction
 
 | Feature | Status | Description |
@@ -34,6 +42,7 @@
 | Office.js runtime | ✅ Shipped | All Excel I/O through `frontend/src/app/services/excel.ts` |
 | Live selection | ✅ Shipped | Pane shows current Excel selection as a pill |
 | Write validation | ✅ Shipped | `write_range` validated before `Excel.run` |
+| A1 bounds before Office.js | ✅ Shipped | Million-cell addresses rejected in JS; `Excel.run` tests mock the host |
 | Write confirm | ✅ Shipped | Apply / Don't write before any AI write lands |
 | Undo stack | ✅ Shipped | Snapshot cells before `write_range`; Undo button |
 | Sideload manifest | ✅ Shipped | `manifest.xml` for desktop Excel on macOS |
@@ -66,7 +75,7 @@
 | Feature | Status | Description |
 |---|---|---|
 | Backend pytest | ✅ Shipped | HTTP contract, tool schemas, cell caps, agent loop, request limits |
-| Frontend mocha | ✅ Shipped | Policy, storage, tool cards, demo chips, undo, write confirm, formula explainer |
+| Frontend mocha | ✅ Shipped | Policy, storage, tool cards, demo chips, undo, write confirm, formula explainer, mocked `Excel.run` |
 
 ## Cut (on purpose)
 
@@ -76,6 +85,7 @@
 | Follow-up suggestion chips | Empty-state demo chips already drive the walkthrough |
 | Markdown chat rendering | Plain text is enough for the demo |
 | Guided tour / ELI5 | Interview decoration |
+| Draft plan docs | They read as a second product next to the shipped README |
 
 ## Future work
 
