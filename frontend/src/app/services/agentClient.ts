@@ -5,6 +5,20 @@ import { dispatchExcelTool } from "./excel";
 
 export const MAX_TOOL_ROUNDS = 8;
 
+/** Turn a raw HTTP status into a message a spreadsheet user (not a developer) can act on. */
+export function friendlyHttpError(status: number): string {
+  if (status === 404) {
+    return "Crunched couldn't reach the backend — is `./scripts/dev-backend.sh` running?";
+  }
+  if (status === 401 || status === 403) {
+    return "Crunched's Anthropic API key looks invalid. Check ANTHROPIC_API_KEY in .env and restart the backend.";
+  }
+  if (status >= 500) {
+    return "Crunched's backend hit an error processing that request. Check the backend terminal for details and try again.";
+  }
+  return `Crunched couldn't complete that request (server said ${status}). Try again in a moment.`;
+}
+
 function asToolUseMessage(toolCalls: ToolCall[]): ChatMessage {
   return {
     role: "assistant",
@@ -22,17 +36,22 @@ async function postChat(
   workbookHint?: WorkbookHint,
   forceText = false
 ): Promise<ChatResponse> {
-  const response = await fetch(CHAT_PATH, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: truncateHistory(messages),
-      workbook_hint: workbookHint,
-      force_text: forceText,
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(CHAT_PATH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: truncateHistory(messages),
+        workbook_hint: workbookHint,
+        force_text: forceText,
+      }),
+    });
+  } catch {
+    throw new Error("Crunched couldn't reach the backend — is `./scripts/dev-backend.sh` running?");
+  }
   if (!response.ok) {
-    throw new Error(`Backend returned ${response.status}`);
+    throw new Error(friendlyHttpError(response.status));
   }
   return (await response.json()) as ChatResponse;
 }
