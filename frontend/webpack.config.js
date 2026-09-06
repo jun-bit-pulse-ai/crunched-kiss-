@@ -6,6 +6,7 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 const urlDev = "https://localhost:3000/";
 const urlProd = "https://localhost:3000/";
+const addinOrigins = new Set(["https://localhost:3000", "https://127.0.0.1:3000"]);
 
 function mkcertHttpsOptions() {
   const certDir = path.resolve(__dirname, "../certs");
@@ -93,7 +94,22 @@ module.exports = async (_env, options) => {
     ],
     devServer: {
       hot: true,
-      headers: { "Access-Control-Allow-Origin": "*" },
+      // Echo CORS only for the pane origins. A wildcard here would let any
+      // website POST https://localhost:3000/api/chat and burn the API key.
+      setupMiddlewares(middlewares, devServer) {
+        if (!devServer.app) {
+          throw new Error("webpack-dev-server app is missing");
+        }
+        devServer.app.use((req, res, next) => {
+          const origin = req.headers.origin;
+          if (typeof origin === "string" && addinOrigins.has(origin)) {
+            res.setHeader("Access-Control-Allow-Origin", origin);
+            res.setHeader("Vary", "Origin");
+          }
+          next();
+        });
+        return middlewares;
+      },
       proxy: [
         {
           context: ["/api"],

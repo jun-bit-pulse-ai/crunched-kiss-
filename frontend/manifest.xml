@@ -16,7 +16,6 @@
   <AppDomains>
     <AppDomain>https://localhost:3000</AppDomain>
     <AppDomain>https://127.0.0.1:3000</AppDomain>
-    <AppDomain>https://localhost:8000</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Workbook" />
