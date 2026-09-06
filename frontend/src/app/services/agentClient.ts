@@ -5,6 +5,19 @@ import { dispatchExcelTool } from "./excel";
 
 export const MAX_TOOL_ROUNDS = 8;
 
+// Mirrors backend/app/limits.py's MAX_BODY_BYTES. The backend correctly rejects an
+// oversized body with a 413 *before* reading it, which means the webpack dev-server
+// proxy sees the connection reset mid-upload and reports its own opaque 500 instead
+// (see issue #32) — so the friendly message never reaches the user on the only path
+// the pane actually uses. Checking here means a too-large request never leaves the
+// browser in the first place.
+export const MAX_REQUEST_BYTES = 1_048_576;
+
+/** UTF-8 byte length of a request body, matching how the backend measures Content-Length. */
+export function byteLength(body: string): number {
+  return new TextEncoder().encode(body).length;
+}
+
 /** Turn a raw HTTP status into a message a spreadsheet user (not a developer) can act on. */
 export function friendlyHttpError(status: number): string {
   if (status === 404) {
@@ -36,16 +49,23 @@ async function postChat(
   workbookHint?: WorkbookHint,
   forceText = false
 ): Promise<ChatResponse> {
+  const body = JSON.stringify({
+    messages: truncateHistory(messages),
+    workbook_hint: workbookHint,
+    force_text: forceText,
+  });
+  if (byteLength(body) > MAX_REQUEST_BYTES) {
+    throw new Error(
+      "That request is too large to send — try a shorter message or ask about a smaller range."
+    );
+  }
+
   let response: Response;
   try {
     response = await fetch(CHAT_PATH, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: truncateHistory(messages),
-        workbook_hint: workbookHint,
-        force_text: forceText,
-      }),
+      body,
     });
   } catch {
     throw new Error("Crunched couldn't reach the backend — is `./scripts/dev-backend.sh` running?");

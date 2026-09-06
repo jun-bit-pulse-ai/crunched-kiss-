@@ -7,21 +7,35 @@ export function countCells(rowCount: number, colCount: number): number {
   return Math.max(0, rowCount) * Math.max(0, colCount);
 }
 
+/**
+ * How many rows of a `totalCols`-wide range fit under `maxCells`. Used to clamp a
+ * range's SHAPE before asking Office.js to load it, so a huge range is never
+ * materialised just to be sliced afterward in JS.
+ */
+export function rowsWithinCellCap(
+  totalRows: number,
+  totalCols: number,
+  maxCells: number = MAX_READ_CELLS
+): { rows: number; truncated: boolean } {
+  const total = countCells(totalRows, totalCols);
+  if (total <= maxCells) {
+    return { rows: Math.max(0, totalRows), truncated: false };
+  }
+  const cols = Math.max(totalCols, 1);
+  const rows = Math.max(1, Math.floor(maxCells / cols));
+  return { rows, truncated: true };
+}
+
 export function sliceValuesToCellCap<T>(
   values: T[][],
   maxCells: number = MAX_READ_CELLS
 ): { values: T[][]; truncated: boolean; totalRows: number; totalCols: number } {
   const totalRows = values.length;
   const totalCols = values[0]?.length ?? 0;
-  const total = countCells(totalRows, totalCols);
-  if (total <= maxCells) {
-    return { values, truncated: false, totalRows, totalCols };
-  }
-  const cols = Math.max(totalCols, 1);
-  const maxRows = Math.max(1, Math.floor(maxCells / cols));
+  const { rows, truncated } = rowsWithinCellCap(totalRows, totalCols, maxCells);
   return {
-    values: values.slice(0, maxRows),
-    truncated: true,
+    values: truncated ? values.slice(0, rows) : values,
+    truncated,
     totalRows,
     totalCols,
   };

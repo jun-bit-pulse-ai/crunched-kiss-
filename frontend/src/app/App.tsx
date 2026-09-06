@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
 import { Eli5Panel } from "./components/Eli5Panel";
@@ -6,12 +6,14 @@ import { GuidedTour } from "./components/GuidedTour";
 import { PromptChips } from "./components/PromptChips";
 import { initialVisible, showPromptChips } from "./demoPrompts";
 import { eli5InputFromVisible, explainLikeFive } from "./eli5";
+import { buildExplainFormulaPrompt } from "./formulaExplainer";
 import { runAgent } from "./services/agentClient";
 import {
   canUndo,
   clearUndoStack,
   getSelectedFormula,
   listWorkbookMeta,
+  subscribeUndoStack,
   undoLastWrite,
   watchSelection,
 } from "./services/excel";
@@ -36,8 +38,9 @@ export default function App() {
   const [eli5Open, setEli5Open] = useState(false);
   const [focusToken, setFocusToken] = useState(0);
   const showTourRef = useRef<HTMLButtonElement | null>(null);
-  // Bump this to force re-render of the undo button when the stack changes.
-  const [undoToken, setUndoToken] = useState(0);
+  // Subscribes directly to the undo stack so the button re-renders whenever it
+  // changes, from any call site — no manually-bumped counter to forget.
+  const canUndoNow = useSyncExternalStore(subscribeUndoStack, canUndo);
 
   useEffect(() => {
     const unsubscribe = watchSelection(setSelection);
@@ -98,7 +101,6 @@ export default function App() {
     setBusy(false);
     setFocusToken((token) => token + 1);
     clearUndoStack();
-    setUndoToken((t) => t + 1);
     // Clear persisted conversation for this workbook.
     listWorkbookMeta()
       .then((meta) => clearConversation(meta.sheets.map((s) => s.name)))
@@ -110,7 +112,15 @@ export default function App() {
   async function send(text: string) {
     setError(null);
     setBusy(true);
-    setVisible((current) => [...current, { id: newId(), kind: "text", role: "user", text }]);
+    // Capture the post-update list from inside the updater itself, rather than
+    // reading the `visible` closure later — that closure is whatever it was when
+    // `send` started and goes stale the moment any other update (e.g. Undo) lands
+    // while this request is in flight.
+    let latestVisible: VisibleMessage[] = [];
+    setVisible((current) => {
+      latestVisible = [...current, { id: newId(), kind: "text", role: "user", text }];
+      return latestVisible;
+    });
     const nextHistory: ChatMessage[] = [...agentMessages, { role: "user", content: text }];
     let sheetNames: string[] = [];
     try {
@@ -140,11 +150,14 @@ export default function App() {
           suggestions: parsed?.suggestions,
         },
       ];
-      setVisible((current) => [...current, ...newVisible]);
+      setVisible((current) => {
+        latestVisible = [...current, ...newVisible];
+        return latestVisible;
+      });
 
       // Persist the conversation.
       if (sheetNames.length > 0) {
-        await persist(sheetNames, result.messages, [...visible, { id: newId(), kind: "text", role: "user", text }, ...newVisible]);
+        await persist(sheetNames, result.messages, latestVisible);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -153,7 +166,6 @@ export default function App() {
     } finally {
       setBusy(false);
       setStatus(null);
-      setUndoToken((t) => t + 1);
     }
   }
 
@@ -178,7 +190,6 @@ export default function App() {
       setError(message);
     } finally {
       setBusy(false);
-      setUndoToken((t) => t + 1);
     }
   }
 
@@ -192,7 +203,7 @@ export default function App() {
         setBusy(false);
         return;
       }
-      const prompt = `Explain this Excel formula in plain English (what it does, step by step): ${formulaInfo.formula}`;
+      const prompt = buildExplainFormulaPrompt(formulaInfo.formula);
       await send(prompt);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -235,7 +246,7 @@ export default function App() {
             <button
               type="button"
               className="undo-button"
-              disabled={busy || !canUndo()}
+              disabled={busy || !canUndoNow}
               onClick={handleUndo}
               title="Undo last AI write"
             >
