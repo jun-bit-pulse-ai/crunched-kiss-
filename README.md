@@ -261,7 +261,9 @@ python3 scripts/make_big_workbook.py
 open scripts/big.xlsx
 ```
 
-Start the backend and dev server as in Setup, then open **Crunched** on the Home tab. The empty pane offers the three prompts below as buttons, so you can drive the whole demo without typing.
+Start the backend and dev server as in Setup, then open **Crunched** on the Home tab.
+
+A new Excel session opens the guided tour first. Either walk it as your opening beat or press **Esc** to skip; the three prompts below are buttons underneath it, so the rest of the demo needs no typing.
 
 `Budget` is six rows carrying two deliberate mistakes: `D4` is a hard-coded `1000` where its neighbours are formulas, and the `Per unit` row divides by empty cells, giving `#DIV/0!`. `Data` is 5,000 × 200.
 
