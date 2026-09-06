@@ -90,8 +90,8 @@ export default function App() {
       <ChatThread messages={visible} status={status} />
       {error ? <div className="banner">{error}</div> : null}
       {selection ? (
-        <p className="selection-pill" title="Crunched can see this range if you refer to “this selection”">
-          Selection: {selection}
+        <p className="selection-pill" title="Say “this selection” and Crunched will read this range">
+          Crunched can see {selection}
         </p>
       ) : null}
       {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}

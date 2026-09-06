@@ -7,6 +7,7 @@ import {
   countCells,
   headerPreviewWidth,
   limitAddresses,
+  selectionLabel,
   sliceValuesToCellCap,
   toHeaderPreview,
 } from "../src/app/excelPolicy";
@@ -106,5 +107,34 @@ describe("limitAddresses", () => {
     assert.strictEqual(result.truncated, true);
     assert.strictEqual(result.total, 900);
     assert.strictEqual(result.addresses[0], "Data!A1");
+  });
+});
+
+describe("selectionLabel", () => {
+  it("does not repeat the sheet name that Office.js already puts in the address", () => {
+    // range.address comes back qualified, so prefixing the sheet again produced
+    // the nonsense "Data!Data!L1:N6".
+    assert.strictEqual(selectionLabel("Data", "Data!L1:N6", 6, 3), "Data!L1:N6 · 6 rows × 3 columns");
+  });
+
+  it("adds the sheet when the address is bare", () => {
+    assert.strictEqual(selectionLabel("Budget", "A1:D6", 6, 4), "Budget!A1:D6 · 6 rows × 4 columns");
+  });
+
+  it("says nothing about size for a single cell", () => {
+    assert.strictEqual(selectionLabel("Data", "Data!A1", 1, 1), "Data!A1");
+  });
+
+  it("uses the singular for one row or one column", () => {
+    assert.strictEqual(selectionLabel("Data", "A1:C1", 1, 3), "Data!A1:C1 · 1 row × 3 columns");
+    assert.strictEqual(selectionLabel("Data", "A1:A4", 4, 1), "Data!A1:A4 · 4 rows × 1 column");
+  });
+
+  it("survives a sheet name containing an exclamation mark", () => {
+    assert.strictEqual(selectionLabel("Q1!", "'Q1!'!B2", 1, 1), "'Q1!'!B2");
+  });
+
+  it("returns null when there is no address to show", () => {
+    assert.strictEqual(selectionLabel("Data", "", 1, 1), null);
   });
 });

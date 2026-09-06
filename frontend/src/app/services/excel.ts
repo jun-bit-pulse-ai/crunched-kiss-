@@ -7,6 +7,7 @@ import {
   assertWriteValues,
   headerPreviewWidth,
   limitAddresses,
+  selectionLabel,
   sliceValuesToCellCap,
   toHeaderPreview,
 } from "../excelPolicy";
@@ -188,7 +189,14 @@ export function watchSelection(onChange: (label: string | null) => void): () => 
     }
     try {
       const selection = await getSelection();
-      onChange(`${selection.sheet}!${selection.address}`);
+      onChange(
+        selectionLabel(
+          selection.sheet,
+          selection.address,
+          selection.total_rows,
+          selection.total_cols
+        )
+      );
     } catch {
       onChange(null);
     }
