@@ -1,5 +1,7 @@
 # Crunched KISS
 
+[![test](https://github.com/jun-bit-pulse-ai/crunched-kiss-/actions/workflows/test.yml/badge.svg)](https://github.com/jun-bit-pulse-ai/crunched-kiss-/actions/workflows/test.yml)
+
 An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Claude asks for workbook data through tools; Office.js is the only Excel runtime. Large sheets stay usable because the model sees addresses and samples, never a whole used range.
 
 **Key idea:** The AI never holds the spreadsheet. It requests small pieces (a sheet list, one range, a search result), reasons about them, optionally writes back, and replies in plain English. This works on a 1-million-cell workbook as well as a small one — Claude is never shown more than a few thousand cells at a time.
