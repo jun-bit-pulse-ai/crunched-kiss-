@@ -1,63 +1,95 @@
-# crunched-kiss-
-a KISS version of crunched that AI chat with your excel 
+# Crunched KISS
 
+A 4-hour, code-quality-first Excel task-pane agent. Chat lives in the add-in. Claude proposes tools. Office.js is the only Excel runtime. Large workbooks stay addressable because the model sees **addresses and samples**, never the whole used range.
 
-Hi! This exercise is a way for us to understand how you work as a full-stack engineer. Building production-quality software is a process of making trade-offs, structuring code for maintainability, and solving problems creatively. We don't expect a polished product in four hours. We do expect you to show us how you think, how you structure code, and how resourceful you are with limited time. If you have to choose between more features and good code, - choose good code. Include any notes, diagrams, or documentation that showcase your process. If you have questions, contact your hiring point of contact.
-Time limit: 4 hours. We will know if you spent significantly more.
-What is Crunched?
-This is Crunched inside Excel as of December 2025:
-A screenshot of a computer
+## Architecture
 
-AI-generated content may be incorrect.
-Crunched lives in Excel as an add-in downloaded from Microsoft app-source (Add-ins button). It has programmatic access to any functionality a normal Excel user would have, as well as other features, such as the ability to search the web or interact with some of the applications that users typically use in their day-to-day work. Typical Crunched use-cases are building full financial models from scratch, iterating on large existing models, researching autonomously, or finding errors and potential issues in workbooks.
-For reference, the actual Crunched stack is:
-Frontend: TypeScript, React, Office.js
-Backend: Python, FastAPI, LangGraph
- 
-The task
-Build a simplified version of Crunched.
-At minimum, a user should be able to open a chat interface in Excel's task pane, send a message to an AI agent, and have the agent read from and write to the spreadsheet. It must be able to interface with workbooks of any size.
-How you accomplish this is up to you. Use whatever stack, architecture, and approach you think is best. We care about your reasoning, not a specific implementation pattern.
- 
-Getting Started
-To scaffold an Excel add-in with React, you can use Microsoft's quickstart:
-https://learn.microsoft.com/en-us/office/dev/add-ins/quickstarts/excel-quickstart-react
-This is optional. Use whatever setup works for you.
-Here is an Anthropic API key. Use it as much as you want: xxxx[will copy and paste later]
- 
-Pitfalls
-Office add-ins run inside a sandboxed WebView controlled by Excel. This WebView enforces strict security: it will not load any content over plain HTTP. Every URL in the manifest, the task pane, icons, commands, must be HTTPS, and the certificate must be trusted by the operating system. This means local development needs two separate trusted certificates: one for the webpack dev server (frontend) and one for the FastAPI/uvicorn server (if you choose to use that).
-If you’re building any Office add-in with a local dev server, the trick is the same: use mkcert to create certificates signed by a local CA that gets installed into your OS trust store.
-brew install mkcert
-mkcert -install                           # creates a local CA and trusts it in macOS Keychain
-mkcert localhost 127.0.0.1 ::1         # generates cert + key files
-Then point your dev server (webpack, vite, express, uvicorn, whatever) at the generated .pem files. Excel’s WebView will now trust your local HTTPS server. If you use Excel online you might be able to skip this problem, but if you can make it work quickly with desktop Excel, that’s the recommended solution.
-Submission
-1.    Create a GitHub repository with your solution
-2.    Include a README.md with setup instructions and general thoughts
-3.    Send the repository link to your hiring contact or recruiting@usecrunched.com
-If the repo is private, add access for: markusskagemo and larsgmu
-Be ready to walk us through your work in a 15-minute call.
+```
+Excel task pane (React + Office.js)
+        │  HTTPS
+        ▼
+FastAPI  POST /chat   (one model turn)
+        │
+        ▼
+Anthropic tool-use
+        │
+        ▼
+Pane executes list_workbook_meta / read_range / write_range / get_selection
+        │
+        ▼
+Tool results go back on the next POST /chat
+```
 
-Picture description:
-The right panel is an AI assistant sidebar called "Crunched" — an "AI analyst in Excel" chat pane. It reads:
+The backend never touches Excel. That avoids COM, workbook uploads, and CORS-to-Excel. It is the same boundary as production Crunched (Office.js frontend, Python agent backend) without LangGraph.
 
-Header: "Crunched" / "No new conversation"
+**Rejected alternatives**
+- Frontend-only Anthropic calls put the API key in the WebView.
+- LangGraph is the real Crunched orchestrator; a single explicit turn is easier to test and walk through in 15 minutes.
+- Dumping the used range into the prompt fails the “any size workbook” requirement.
 
-Intro message:Hi, I'm Crunched — your AI analyst in Excel. I can help you with things like:
-Error checking and fixing models
-Building financial or business models
-Analyzing and comparing scenario models
-Pulling insights from the web and analyzing them
-What should we work on first?
-(6:31 PM)
+## Tool loop
 
-Suggested prompts (chips/messages below):
-Error check Budget model worst case (partially legible)
-Check assumptions in Revenue build-up model
-Create comparison dashboard across scenarios (partially legible)
+`POST /chat` is one Claude turn. The pane owns history and Excel round-trips.
 
+- Response is exactly one of `tool_calls`, `message`, or `error`.
+- Hard cap: **8 tool rounds** per user send, then `force_text`.
+- Reads over **2,000 cells** are truncated in `frontend/src/app/excelPolicy.ts` (enforced) and documented in `backend/app/tools.py`.
+- Older tool payloads in history are stubbed so the context window does not grow without bound.
 
-Bottom: input box "Ask me anything..." with "Reason" and "Agent Mode" toggles.
+## Setup
 
-So it's basically an Excel-embedded copilot for financial model work — error-checking, scenario comparison, dashboards — sitting next to what looks like a multi-scenario budget/revenue model spreadsheet. Heads-up: the screenshot is low-res, so the three suggestion lines are my best read; everything else is verbatim.
+Prerequisites: Node 20–24, Python 3.12+, desktop Excel, and either [mkcert](https://github.com/FiloSottile/mkcert) or Microsoft’s `office-addin-dev-certs`.
+
+```bash
+# 1. Certificates (Excel WebView refuses HTTP)
+brew install mkcert && mkcert -install   # recommended
+./scripts/setup-certs.sh                 # mkcert if present, else office-addin-dev-certs
+
+# 2. Icons (already generated; re-run if needed)
+python3 scripts/make_icons.py
+
+# 3. Backend
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp ../.env.example ../.env               # add ANTHROPIC_API_KEY
+../scripts/dev-backend.sh                # HTTPS on https://localhost:8000
+
+# 4. Add-in
+cd frontend
+npm install
+npm run validate
+npm test
+npm run start                            # webpack HTTPS + sideload into desktop Excel
+```
+
+If `npm run start` does not attach to Excel, upload `frontend/manifest.xml` via **Insert → Add-ins → Upload My Add-in**, with `npm run dev-server` already running.
+
+Open a workbook, send “What is in A1?” then “Write Hello to B1.”
+
+## Tests
+
+```bash
+cd backend && .venv/bin/pytest -q
+cd frontend && npm test
+```
+
+Backend tests mock Anthropic. They do not need Excel or a live API key.
+
+## Layout
+
+- `frontend/` — Office add-in. `excel.ts` is the only Office.js wrapper.
+- `backend/app/agent.py` — the only LLM call.
+- `backend/app/tools.py` — closed tool list and the 2,000-cell policy.
+- `certs/` — shared HTTPS pair for webpack and uvicorn (gitignored).
+
+The Yeoman generator (`yo office`) refuses odd-numbered Node (this machine is Node 23). The add-in follows the official [Office-Addin-TaskPane-React](https://github.com/OfficeDev/Office-Addin-TaskPane-React) webpack + manifest layout, stripped of sample ribbon logic.
+
+## What was cut
+
+Streaming, conversation persistence, LangGraph, web research, scenario dashboards, Reason/Agent Mode toggles, Excel Online as the primary host. Formula repair is limited to what `read_range` already returns.
+
+## Walkthrough notes
+
+The interesting design is the Excel boundary, not the chat chrome. Start there: why the backend returns tool calls, why metadata is O(sheets), and why the pane enforces the cell cap even if the model asks for `A:XFD`.
