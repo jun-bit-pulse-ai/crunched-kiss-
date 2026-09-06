@@ -2,13 +2,11 @@ import { useMemo, useState } from "react";
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
 import { PromptChips } from "./components/PromptChips";
+import { initialVisible, showPromptChips } from "./demoPrompts";
 import { runAgent } from "./services/agentClient";
 import { listWorkbookMeta } from "./services/excel";
 import { toolCardsFromMessages } from "./toolCards";
 import type { ChatMessage, VisibleMessage, WorkbookHint } from "./types";
-
-const WELCOME =
-  "Hi, I'm Crunched — your AI analyst in Excel. I can help you with things like:\n\nError checking and fixing models\nBuilding financial or business models\nAnalyzing and comparing scenario models\n\nWhat should we work on first?";
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -16,9 +14,7 @@ function newId(): string {
 
 export default function App() {
   const [agentMessages, setAgentMessages] = useState<ChatMessage[]>([]);
-  const [visible, setVisible] = useState<VisibleMessage[]>([
-    { id: "welcome", kind: "text", role: "assistant", text: WELCOME },
-  ]);
+  const [visible, setVisible] = useState<VisibleMessage[]>(initialVisible);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,6 +24,14 @@ export default function App() {
       ? "Working conversation"
       : "No new conversation";
   }, [agentMessages]);
+
+  function resetChat() {
+    setAgentMessages([]);
+    setVisible(initialVisible());
+    setStatus(null);
+    setError(null);
+    setBusy(false);
+  }
 
   async function send(text: string) {
     setError(null);
@@ -67,12 +71,19 @@ export default function App() {
           <p className="eyebrow">Excel analyst</p>
           <h1>Crunched</h1>
         </div>
-        <p className="conversation-label">{conversationLabel}</p>
+        <div className="masthead-row">
+          <p className="conversation-label">{conversationLabel}</p>
+          {showPromptChips(visible) ? null : (
+            <button type="button" className="new-chat" disabled={busy} onClick={resetChat}>
+              New chat
+            </button>
+          )}
+        </div>
         <div className={`rule ${busy ? "rule-busy" : ""}`} />
       </header>
       <ChatThread messages={visible} status={status} />
       {error ? <div className="banner">{error}</div> : null}
-      <PromptChips disabled={busy} onPick={send} />
+      {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}
       <Composer disabled={busy} onSend={send} />
     </div>
   );
