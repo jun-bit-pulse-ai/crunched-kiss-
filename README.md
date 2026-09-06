@@ -19,6 +19,8 @@ An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Cla
 - **Live selection** — the pane shows your current Excel selection so you can say "this table"
 - **8-round cap** — per-question tool loop hard-limits at 8 rounds, then forces a text answer
 
+> 📋 See the full [feature list](docs/FEATURES.md) for a complete inventory of shipped, planned, and cut features.
+
 ---
 
 ## Prerequisites
