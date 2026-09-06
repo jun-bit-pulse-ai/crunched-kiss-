@@ -10,7 +10,9 @@
 
 **Target machine:** this MacBook. Excel for Mac 16.112 is installed, `uv` is on PATH, `mkcert` is not (and is not needed, see Task 1). Node defaults to 23, which the Office generator rejects; Node 24 is installed under nvm and every `npm` command in this plan runs under it (`nvm use 24`).
 
-**Where it builds:** in a git worktree at `/Users/junseki/Documents/GitHub/crunched-kiss-claude` on branch `claude-macbook-plan`, created in Task 0, because the main checkout is on `feat/excel-taskpane-agent` with a separate implementation of the other plan.
+**Where it builds:** in a git worktree at `/Users/junseki/Documents/GitHub/crunched-kiss-claude` on branch `claude-macbook-plan`, created in Task 0, because the main checkout's `main` already contains a separate implementation of the other plan.
+
+**Status (2026-09-06, evening):** written as a standalone alternative to `IMPLEMENTATION_PLAN.md`. Since then the repo merged the other implementation onto `main` and added `FINAL_PLAN.md`, which declares itself the source of truth and folds this plan's architecture (pane-owned loop, native tool use, `/api` proxy, `find`, 1M-cell fixture, tracer-bullet order, tests on pure logic, cut order, demo script) into follow-up tasks on trunk. Treat this file as the fully worked reference for those ideas. Executing it as written is still safe: Task 0 builds in a separate worktree off the brief commit and touches nothing on `main`.
 
 ---
 
@@ -152,7 +154,7 @@ Conventions: commit after every green step; commands are run from the path shown
 
 ### Task 0: Isolate this build from the other implementation (0:00–0:05)
 
-The main checkout at `/Users/junseki/Documents/GitHub/crunched-kiss` is on branch `feat/excel-taskpane-agent`, which holds a separate implementation built from `IMPLEMENTATION_PLAN.md` (`frontend/`, `backend/`, `scripts/`, `certs/`, its own README). This plan also uses `backend/`, so it builds in its own git worktree on its own branch, based on the brief commit `2987b87` (which is also where `main` points). Nothing on the other branch is modified or deleted; the two implementations can be run, compared, or submitted independently.
+The main checkout at `/Users/junseki/Documents/GitHub/crunched-kiss` is on `main`, which has merged a separate implementation built from `IMPLEMENTATION_PLAN.md` (`frontend/`, `backend/`, `scripts/`, `certs/`, its own README, plus `FINAL_PLAN.md`). This plan also uses `backend/`, so it builds in its own git worktree on its own branch, based on the brief commit `2987b87`, an ancestor of `main` whose tree is only `LICENSE` and the brief README. Nothing on `main` is modified or deleted; the two implementations can be run, compared, or submitted independently.
 
 **Files:**
 - Create: `/Users/junseki/Documents/GitHub/crunched-kiss-claude/` (worktree), `.gitignore` inside it
@@ -163,7 +165,7 @@ The main checkout at `/Users/junseki/Documents/GitHub/crunched-kiss` is on branc
 cd /Users/junseki/Documents/GitHub/crunched-kiss && git status --short && git branch --show-current && git worktree list
 ```
 
-Expected: the three plan files untracked, current branch `feat/excel-taskpane-agent`, a single worktree. If a `crunched-kiss-claude` worktree is already listed, skip Step 2.
+Expected: branch `main`, a clean status, and a single worktree (the sibling folder `crunched-kiss 2` is a separate clone, not a worktree). Whatever the branch or status turns out to be, Step 2 is safe as long as the target folder and branch `claude-macbook-plan` do not exist yet. If the `crunched-kiss-claude` worktree is already listed, skip Step 2.
 
 - [ ] **Step 2: Create the worktree and copy this plan into it**
 
@@ -319,7 +321,7 @@ CLAUDE_MODEL=claude-opus-5
 CLAUDE_EFFORT=medium
 ```
 
-The brief's key line is the placeholder `xxxx[will copy and paste later]`, so the key comes from the hiring contact; if the main checkout's `.env` already holds a working key, copy it from there. Never commit `.env`.
+The brief's key line is the placeholder `xxxx[will copy and paste later]`, so the key comes from the hiring contact. A working key already sits in `/Users/junseki/Documents/GitHub/crunched-kiss/.env` (repo root of the main checkout): copy only its `ANTHROPIC_API_KEY=` line, because that file's other variable names differ from this plan's. Never commit `.env`.
 
 `backend/pytest.ini` (so a plain `pytest` run from `backend/` can import `app`):
 
@@ -397,7 +399,7 @@ def test_chat_rejects_empty_history():
 - [ ] **Step 3: Run it, confirm it fails**
 
 ```bash
-cd /Users/junseki/Documents/GitHub/crunched-kiss-claude/backend && pytest -q
+cd /Users/junseki/Documents/GitHub/crunched-kiss-claude/backend && .venv/bin/pytest -q
 ```
 
 Expected: `ModuleNotFoundError: No module named 'app.agent'` (or similar import error).
@@ -609,7 +611,7 @@ def chat(req: ChatRequest) -> dict:
 - [ ] **Step 8: Run tests, confirm they pass**
 
 ```bash
-cd /Users/junseki/Documents/GitHub/crunched-kiss-claude/backend && pytest -q
+cd /Users/junseki/Documents/GitHub/crunched-kiss-claude/backend && .venv/bin/pytest -q
 ```
 
 Expected: `2 passed`.
@@ -689,7 +691,7 @@ git commit -m "feat: proxy /api to the backend so the pane has one HTTPS origin"
 
 **Files:**
 - Create: `addin/vitest.config.ts`, `addin/src/taskpane/excel/a1.ts`, `a1.test.ts`, `format.ts`, `format.test.ts`, `client.ts`, `addin/src/taskpane/agent/tools.ts`
-- Modify: `addin/package.json` (scripts, devDependencies)
+- Modify: `addin/package.json` (scripts, devDependencies), `addin/tsconfig.json` (`skipLibCheck`)
 
 - [ ] **Step 1: Test tooling**
 
@@ -1452,8 +1454,8 @@ cd .. && git add addin && git commit -m "feat: suggested prompts and error state
 - [ ] **Step 2: Final verification** (`@superpowers:verification-before-completion`)
 
 ```bash
-cd /Users/junseki/Documents/GitHub/crunched-kiss-claude/backend && pytest -q
-cd ../addin && npx tsc --noEmit && npm test
+cd /Users/junseki/Documents/GitHub/crunched-kiss-claude/backend && .venv/bin/pytest -q
+cd ../addin && source ~/.nvm/nvm.sh && nvm use 24 && npx tsc --noEmit && npm test
 ```
 
 Then run the three demo prompts from Task 7 Step 2 once more in Excel. Only after all pass:
@@ -1464,7 +1466,7 @@ git add README.md && git commit -m "docs: setup, architecture, trade-offs"
 git push -u origin claude-macbook-plan
 ```
 
-The other implementation lives on `feat/excel-taskpane-agent`. Decide which branch is the submission (or merge one into `main`) before sharing the link. Add `markusskagemo` and `larsgmu` as collaborators if the repo is private; email the link to recruiting@usecrunched.com.
+`main` already carries the other implementation and `FINAL_PLAN.md`, which mandates trunk-only work; this branch deliberately stays separate so the two can be compared. Before sharing a link, decide with Jun whether the submission is `main`, this branch, or `main` with pieces cherry-picked from here. Add `markusskagemo` and `larsgmu` as collaborators if the repo is private; email the link to recruiting@usecrunched.com.
 
 ---
 
