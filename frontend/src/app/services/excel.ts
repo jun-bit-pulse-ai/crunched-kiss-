@@ -24,6 +24,53 @@ export type SheetMeta = {
   headerPreview: string[];
 };
 
+/** Snapshot of a range's values before a write, for undo. */
+type Snapshot = {
+  sheet: string;
+  address: string;
+  values: CellValue[][];
+};
+
+const MAX_UNDO_DEPTH = 10;
+const undoStack: Snapshot[] = [];
+
+export function canUndo(): boolean {
+  return undoStack.length > 0;
+}
+
+export function clearUndoStack(): void {
+  undoStack.length = 0;
+}
+
+export async function undoLastWrite(): Promise<{ sheet: string; address: string } | null> {
+  const snapshot = undoStack.pop();
+  if (!snapshot) {
+    return null;
+  }
+  await Excel.run(async (context) => {
+    const range = context.workbook.worksheets.getItem(snapshot.sheet).getRange(snapshot.address);
+    range.values = snapshot.values;
+    await context.sync();
+  });
+  return { sheet: snapshot.sheet, address: snapshot.address };
+}
+
+async function snapshotRange(sheet: string, address: string): Promise<void> {
+  await Excel.run(async (context) => {
+    const range = context.workbook.worksheets.getItem(sheet).getRange(address);
+    range.load("values");
+    await context.sync();
+    undoStack.push({
+      sheet,
+      address,
+      values: range.values as CellValue[][],
+    });
+    if (undoStack.length > MAX_UNDO_DEPTH) {
+      undoStack.shift();
+    }
+  });
+}
+
 export async function listWorkbookMeta(): Promise<{ sheets: SheetMeta[] }> {
   return Excel.run(async (context) => {
     const sheets = context.workbook.worksheets;
@@ -97,6 +144,8 @@ export async function writeRange(sheet: string, address: string, values: unknown
   if (!assertWriteValues(values)) {
     throw new Error("write_range requires a non-empty 2D values array");
   }
+  // Snapshot before overwriting so the user can undo.
+  await snapshotRange(sheet, address);
   return Excel.run(async (context) => {
     const range = context.workbook.worksheets.getItem(sheet).getRange(address);
     range.values = values;

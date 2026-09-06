@@ -624,3 +624,35 @@ h1 {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Header actions: Undo + New chat */
+.header-actions {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.undo-button {
+  margin: 0 0 10px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--ledger);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.undo-button:hover:not(:disabled) {
+  color: var(--paper);
+}
+
+.undo-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.undo-button:focus-visible {
+  outline: 2px solid var(--ledger);
+  outline-offset: 2px;
+}

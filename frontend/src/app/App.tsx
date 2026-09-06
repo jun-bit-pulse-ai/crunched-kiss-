@@ -7,7 +7,13 @@ import { PromptChips } from "./components/PromptChips";
 import { initialVisible, showPromptChips } from "./demoPrompts";
 import { eli5InputFromVisible, explainLikeFive } from "./eli5";
 import { runAgent } from "./services/agentClient";
-import { listWorkbookMeta, watchSelection } from "./services/excel";
+import {
+  canUndo,
+  clearUndoStack,
+  listWorkbookMeta,
+  undoLastWrite,
+  watchSelection,
+} from "./services/excel";
 import { parseSuggestions } from "./suggestions";
 import { toolCardsFromMessages } from "./toolCards";
 import { hasSeenTour, markTourSeen, TOUR_TARGETS } from "./tour";
@@ -28,6 +34,8 @@ export default function App() {
   const [eli5Open, setEli5Open] = useState(false);
   const [focusToken, setFocusToken] = useState(0);
   const showTourRef = useRef<HTMLButtonElement | null>(null);
+  // Bump this to force re-render of the undo button when the stack changes.
+  const [undoToken, setUndoToken] = useState(0);
 
   useEffect(() => {
     const unsubscribe = watchSelection(setSelection);
@@ -56,6 +64,8 @@ export default function App() {
     setError(null);
     setBusy(false);
     setFocusToken((token) => token + 1);
+    clearUndoStack();
+    setUndoToken((t) => t + 1);
   }
 
   async function send(text: string) {
@@ -97,6 +107,32 @@ export default function App() {
     } finally {
       setBusy(false);
       setStatus(null);
+      setUndoToken((t) => t + 1);
+    }
+  }
+
+  async function handleUndo() {
+    if (!canUndo()) return;
+    setBusy(true);
+    try {
+      const restored = await undoLastWrite();
+      if (restored) {
+        setVisible((current) => [
+          ...current,
+          {
+            id: newId(),
+            kind: "text",
+            role: "system",
+            text: `Undo: restored ${restored.address} on ${restored.sheet}`,
+          },
+        ]);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+    } finally {
+      setBusy(false);
+      setUndoToken((t) => t + 1);
     }
   }
 
@@ -130,6 +166,15 @@ export default function App() {
               onClick={() => setEli5Open((open) => !open)}
             >
               Explain like I&apos;m 5
+            </button>
+            <button
+              type="button"
+              className="undo-button"
+              disabled={busy || !canUndo()}
+              onClick={handleUndo}
+              title="Undo last AI write"
+            >
+              Undo
             </button>
             <button
               type="button"
