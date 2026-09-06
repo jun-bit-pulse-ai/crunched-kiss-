@@ -14,3 +14,5 @@ frontend/dist/
 *.log
 .office-addin-dev-certs/
 scripts/*.xlsx
+# macOS Finder "duplicate" copies (foo 2.py)
+* 2.*
