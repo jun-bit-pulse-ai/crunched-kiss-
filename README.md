@@ -58,7 +58,7 @@ The agent loop lives in the pane because tools can only run inside Excel’s Web
 
 ## Tools
 
-`find` and the header preview are on `main` (issue #3).
+`find` and the header preview are on `main` (issue #3). Each executed tool stays in the thread as a card (name + a short result) so the demo can point at `list_workbook_meta` or `write_range` without opening the network tab.
 
 | Tool | Role |
 |---|---|
@@ -78,7 +78,7 @@ The model never loads the book. It asks for **addresses and samples**.
 - Use `find` to locate labels, then `read_range` on a small block.
 - Reads over 2,000 cells are truncated (or rejected) in the pane.
 - After 8 tool rounds the pane forces a text reply.
-- Generate a ~1M-cell fixture with `python3 scripts/make_big_workbook.py` (after [issue #4](https://github.com/jun-bit-pulse-ai/crunched-kiss-/issues/4) merges). The xlsx is local and gitignored.
+- Generate a ~1M-cell fixture with `python3 scripts/make_big_workbook.py`. The xlsx is local and gitignored.
 
 ## Tests
 
@@ -99,7 +99,7 @@ These cover the HTTP contract, tool schemas, cell/history caps, and API paths. O
 
 ## 15-minute demo
 
-1. Open a large book (or `scripts/big.xlsx`). Ask how big it is. Point at one meta/overview call — not a full read of Data.
+1. Open a large book (or `scripts/big.xlsx`). Ask how big it is. Point at the `list_workbook_meta` card that stays in the thread — not a full read of Data.
 2. Error-check the Budget sheet. Show formulas and name the planted hard-coded cell and `#DIV/0!`.
 3. Write one formula with `write_range` and show the cell.
 4. Walk `agentClient.ts` (loop), `agent.py` (one turn), `tools.py` (contract). Excel never lives in Python.
