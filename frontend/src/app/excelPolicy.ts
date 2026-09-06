@@ -66,3 +66,28 @@ export function limitAddresses(
     total: addresses.length,
   };
 }
+
+/**
+ * Label for the "Crunched can see this" pill.
+ *
+ * Office.js already returns a sheet-qualified address, so prefixing the sheet
+ * name again produced "Data!Data!L1:N6". Add the sheet only when it is missing,
+ * and say the size in words, since a bare "6×3" reads like a cell reference.
+ */
+export function selectionLabel(
+  sheet: string,
+  address: string,
+  rowCount: number,
+  columnCount: number
+): string | null {
+  if (!address) {
+    return null;
+  }
+  const qualified = address.includes("!") ? address : sheet ? `${sheet}!${address}` : address;
+  if (rowCount <= 1 && columnCount <= 1) {
+    return qualified;
+  }
+  const rows = `${rowCount} ${rowCount === 1 ? "row" : "rows"}`;
+  const columns = `${columnCount} ${columnCount === 1 ? "column" : "columns"}`;
+  return `${qualified} · ${rows} × ${columns}`;
+}
