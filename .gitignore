@@ -13,3 +13,5 @@ frontend/dist/
 .DS_Store
 *.log
 .office-addin-dev-certs/
+scripts/*.xlsx
+.office-addin-dev-certs/
