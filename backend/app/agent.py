@@ -39,6 +39,14 @@ Format exactly as:
 
 The user can click a button to respond. Keep options short (under 60 chars each).
 Never ask a clarifying question if the request is clear.
+
+Follow-up suggestions:
+After answering, you may suggest 2-3 short follow-up questions the user might want to ask next. Append them on a separate line at the very end of your reply.
+
+Format exactly as:
+💡 "Show me the formulas" · "Find errors" · "Add a total row"
+
+Use double quotes around each suggestion. Separate with a middle dot (·). Keep each under 50 chars. Only add suggestions when they genuinely help the user continue the conversation.
 """
 
 

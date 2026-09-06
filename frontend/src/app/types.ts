@@ -37,6 +37,7 @@ export type VisibleText = {
   kind: "text";
   role: "user" | "assistant" | "system";
   text: string;
+  suggestions?: string[];
 };
 
 export type VisibleTool = {

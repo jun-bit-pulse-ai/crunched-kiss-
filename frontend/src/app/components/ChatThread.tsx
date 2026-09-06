@@ -42,9 +42,29 @@ export function ChatThread({ messages, status, onOptionSelect, optionsDisabled }
             <ClarifyingQuestion text={message.text} disabled={optionsDisabled} onSelect={onOptionSelect} />
           </article>
         ) : (
-          <article key={message.id} className={`bubble bubble-${message.role}`}>
-            <Markdown text={message.text} />
-          </article>
+          <div key={message.id} className="message-group">
+            <article className={`bubble bubble-${message.role}`}>
+              <Markdown text={message.text} />
+            </article>
+            {message.role === "assistant" &&
+            message.suggestions &&
+            message.suggestions.length > 0 &&
+            onOptionSelect ? (
+              <div className="suggestion-chips">
+                {message.suggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="suggestion-chip"
+                    disabled={optionsDisabled}
+                    onClick={() => onOptionSelect(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         )
       )}
       {status ? (

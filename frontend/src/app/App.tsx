@@ -5,6 +5,7 @@ import { PromptChips } from "./components/PromptChips";
 import { initialVisible, showPromptChips } from "./demoPrompts";
 import { runAgent } from "./services/agentClient";
 import { listWorkbookMeta, watchSelection } from "./services/excel";
+import { parseSuggestions } from "./suggestions";
 import { toolCardsFromMessages } from "./toolCards";
 import type { ChatMessage, VisibleMessage, WorkbookHint } from "./types";
 
@@ -57,10 +58,19 @@ export default function App() {
       const result = await runAgent(nextHistory, hint, setStatus);
       const cards = toolCardsFromMessages(result.messages, nextHistory.length);
       setAgentMessages(result.messages);
+
+      // Parse follow-up suggestions from assistant text
+      const parsed = parseSuggestions(result.text);
       setVisible((current) => [
         ...current,
         ...cards.map((card) => ({ kind: "tool" as const, ...card })),
-        { id: newId(), kind: "text", role: "assistant", text: result.text },
+        {
+          id: newId(),
+          kind: "text",
+          role: "assistant",
+          text: parsed?.text ?? result.text,
+          suggestions: parsed?.suggestions,
+        },
       ]);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
