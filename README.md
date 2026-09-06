@@ -276,7 +276,11 @@ Claude locates the labels, reads the small block with formulas, and reports the 
 
 Ask **"Fix the hard-coded Gross profit in Budget!D4."**
 
-Cards appear in order: `list_workbook_meta`, `find` (`"Gross profit"`), `read_range` (`Budget!A1:D6 · formulas`), then an Apply / Don't write card for `Budget!D4`. Click **Apply**. The `write_range` card follows. Claude replies that `D4` now holds `=D2-D3`. Click the cell to confirm.
+Cards appear in order: `list_workbook_meta`, `find` (`"Gross profit"`), `read_range` (`Budget!A1:D6 · formulas`), then an Apply / Don't write card for `Budget!D4`.
+
+**The write waits for you.** Nothing reaches the sheet until you press **Apply**; **Don't write** declines and tells Claude so. Press Apply and the `write_range` card follows: `D4` changes from the hard-coded `1000` to `=D2-D3`. Click the cell to see the formula bar. **Undo** restores the previous value if you want to run the step twice.
+
+That pause is the point worth making: the agent proposes, the human commits.
 
 ### 4. The code (about 4 minutes)
 
