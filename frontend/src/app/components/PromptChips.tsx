@@ -7,7 +7,7 @@ type PromptChipsProps = {
 
 export function PromptChips({ disabled, onPick }: PromptChipsProps) {
   return (
-    <div className="chips">
+    <div className="chips" data-tour="chips">
       {DEMO_CHIPS.map((chip) => (
         <button key={chip} type="button" className="chip" disabled={disabled} onClick={() => onPick(chip)}>
           {chip}

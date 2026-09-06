@@ -28,4 +28,27 @@ describe("parseOptions", () => {
     const result = parseOptions(text);
     assert.strictEqual(result?.options.length, 4);
   });
+
+  it("matches the blockquote format from the system prompt", () => {
+    const text = [
+      "> **Which sheet would you like to work with?**",
+      ">",
+      "> A) Budget — the 7-row financial model",
+      "> B) Data — the 5,000-row metrics table",
+      "> C) A new sheet",
+    ].join("\n");
+    const result = parseOptions(text);
+    assert.deepStrictEqual(result, {
+      question: "**Which sheet would you like to work with?**",
+      options: [
+        { letter: "A", text: "Budget — the 7-row financial model" },
+        { letter: "B", text: "Data — the 5,000-row metrics table" },
+        { letter: "C", text: "A new sheet" },
+      ],
+    });
+  });
+
+  it("does not treat prose like 'I checked B) and…' as options", () => {
+    assert.strictEqual(parseOptions("I checked B) and it looked fine."), null);
+  });
 });

@@ -22,7 +22,9 @@ export function ChatThread({ messages, status, onOptionSelect, optionsDisabled }
   }, [messages.length, status]);
 
   return (
-    <div className="thread" aria-live="polite">
+    <div className="thread" data-tour="thread" aria-live="polite">
+      {/* Anchor for the tour even when no peek cards have landed yet. */}
+      <span className="tour-tools-anchor" data-tour="tools" aria-hidden="true" />
       {messages.map((message) =>
         message.kind === "tool" ? (
           <article

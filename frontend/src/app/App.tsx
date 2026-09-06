@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
+import { Eli5Panel } from "./components/Eli5Panel";
+import { GuidedTour } from "./components/GuidedTour";
 import { PromptChips } from "./components/PromptChips";
 import { initialVisible, showPromptChips } from "./demoPrompts";
+import { eli5InputFromVisible, explainLikeFive } from "./eli5";
 import { runAgent } from "./services/agentClient";
 import { listWorkbookMeta, watchSelection } from "./services/excel";
 import { parseSuggestions } from "./suggestions";
 import { toolCardsFromMessages } from "./toolCards";
+import { hasSeenTour, markTourSeen, TOUR_TARGETS } from "./tour";
 import type { ChatMessage, VisibleMessage, WorkbookHint } from "./types";
 
 function newId(): string {
@@ -20,12 +24,24 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [selection, setSelection] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [eli5Open, setEli5Open] = useState(false);
   const [focusToken, setFocusToken] = useState(0);
+  const showTourRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     const unsubscribe = watchSelection(setSelection);
     return unsubscribe;
   }, []);
+
+  // Starts from the pane, not Office.onReady — a browser preview still gets the tour.
+  useEffect(() => {
+    if (!hasSeenTour()) {
+      setTourOpen(true);
+    }
+  }, []);
+
+  const eli5Text = useMemo(() => explainLikeFive(eli5InputFromVisible(visible)), [visible]);
 
   const conversationLabel = useMemo(() => {
     return agentMessages.some((message) => message.role === "user" && typeof message.content === "string")
@@ -48,6 +64,8 @@ export default function App() {
     setVisible((current) => [...current, { id: newId(), kind: "text", role: "user", text }]);
     const nextHistory: ChatMessage[] = [...agentMessages, { role: "user", content: text }];
     try {
+      // Office.js lives in the pane. The backend never opens the xlsx —
+      // it only gets these sheet names as a hint so Claude can pick a tool.
       let hint: WorkbookHint | undefined;
       try {
         const meta = await listWorkbookMeta();
@@ -91,14 +109,46 @@ export default function App() {
         </div>
         <div className="masthead-row">
           <p className="conversation-label">{conversationLabel}</p>
-          {showPromptChips(visible) ? null : (
-            <button type="button" className="new-chat" disabled={busy} onClick={resetChat}>
+          <div className="masthead-actions">
+            <button
+              ref={showTourRef}
+              type="button"
+              className="text-action"
+              aria-haspopup="dialog"
+              onClick={() => {
+                setEli5Open(false);
+                setTourOpen(true);
+              }}
+            >
+              Show tour
+            </button>
+            <button
+              type="button"
+              className="text-action"
+              aria-expanded={eli5Open}
+              aria-controls="eli5-panel"
+              onClick={() => setEli5Open((open) => !open)}
+            >
+              Explain like I&apos;m 5
+            </button>
+            <button
+              type="button"
+              className="text-action"
+              data-tour={TOUR_TARGETS.newChat}
+              disabled={busy}
+              onClick={resetChat}
+            >
               New chat
             </button>
-          )}
+          </div>
         </div>
         <div className={`rule ${busy ? "rule-busy" : ""}`} />
       </header>
+      {eli5Open ? (
+        <div id="eli5-panel">
+          <Eli5Panel text={eli5Text} onClose={() => setEli5Open(false)} />
+        </div>
+      ) : null}
       <ChatThread messages={visible} status={status} onOptionSelect={send} optionsDisabled={busy} />
       {error ? <div className="banner">{error}</div> : null}
       {selection ? (
@@ -108,6 +158,16 @@ export default function App() {
       ) : null}
       {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}
       <Composer disabled={busy} onSend={send} focusToken={focusToken} />
+      <GuidedTour
+        open={tourOpen}
+        onClose={(reason) => {
+          if (reason === "skip" || reason === "done") {
+            markTourSeen();
+          }
+          setTourOpen(false);
+          showTourRef.current?.focus();
+        }}
+      />
     </div>
   );
 }

@@ -176,6 +176,16 @@ The frontend parses `A) …` `B) …` lines and renders them as clickable button
 
 ---
 
+## Guided tour and Explain like I'm 5
+
+The first time the pane opens in a session, a short skippable tour points at the chat thread, the demo chips, the composer, peek cards, and **New chat**. Press Esc to skip, or use Next / Back. The composer stays usable — the tour never disables it. “Tour seen” lives in `sessionStorage`, so a new Excel session (or a new tab) gets the tour again. **Show tour** in the header replays it for a hiring-call reviewer.
+
+**Explain like I'm 5** (header) restates the latest assistant reply and any peek cards in tiny words. That formatter is local and deterministic — it maps tool names to kid sentences (`list_workbook_meta` → “I peeked at the sheet names… I did not read every cell.”) and strips Markdown from the last answer. It does not call Anthropic, so the backend contract is unchanged.
+
+Neither feature needs Excel to start: the pane mounts without `Office.onReady`, and the tour runs from there.
+
+---
+
 ## Development
 
 ```bash
