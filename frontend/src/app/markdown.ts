@@ -35,12 +35,24 @@ export function parseInline(source: string): Inline[] {
   const spans: Inline[] = [];
   let index = 0;
 
-  for (const match of source.matchAll(INLINE_PATTERN)) {
+  // An explicit exec loop, not matchAll, because a rejected italic candidate has
+  // to be re-scanned. The italic alternative runs from one star to the next star
+  // anywhere on the line, so "=B2*C2 ... **wrong**" matches "*C2 ... *" — and if
+  // that is discarded without rewinding, the scan resumes past the bold's opening
+  // "**" and the bold silently renders as literal asterisks. Formula stars are
+  // everywhere in this product's replies, so that would fire constantly.
+  const pattern = new RegExp(INLINE_PATTERN.source, "g");
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(source)) !== null) {
     const token = match[0];
-    const start = match.index ?? 0;
+    const start = match.index;
     const isItalic = !token.startsWith("**") && !token.startsWith("`");
     if (isItalic && !opensAWord(source, start)) {
-      continue; // leave it in place; it will be emitted as plain text
+      // Resume just past the rejected opener: the text it spanned may contain a
+      // real emphasis or code span. Leave the star itself as plain text.
+      pattern.lastIndex = start + 1;
+      continue;
     }
     if (start > index) {
       spans.push({ type: "text", text: source.slice(index, start) });
@@ -62,7 +74,9 @@ export function parseInline(source: string): Inline[] {
 }
 
 const HEADING = /^(#{1,6})\s+(.*)$/;
-const BULLET = /^\s*[-*+]\s+(.*)$/;
+// The content is optional so a bare "- " marker joins the list instead of
+// breaking out of it and leaving a stray hyphen paragraph in the middle.
+const BULLET = /^\s*[-*+](?:\s+(.*))?$/;
 // Bounded to three digits so a year ("2024. was strong") stays prose.
 const ORDERED = /^\s*(\d{1,3})[.)]\s+(.*)$/;
 const RULE = /^\s*([-*_])\1{2,}\s*$/;
@@ -118,12 +132,26 @@ export function parseMarkdown(source: string): Block[] {
       const header = tableCells(line).map(parseInline);
       const rows: Inline[][][] = [];
       cursor += 2;
-      while (cursor < lines.length && TABLE_ROW.test(lines[cursor])) {
-        const cells = tableCells(lines[cursor]).map(parseInline);
-        // Pad or trim so every cell stays under its heading.
-        while (cells.length < header.length) cells.push([]);
-        rows.push(cells.slice(0, header.length));
-        cursor += 1;
+      while (cursor < lines.length) {
+        if (TABLE_ROW.test(lines[cursor])) {
+          const cells = tableCells(lines[cursor]).map(parseInline);
+          // Pad or trim so every cell stays under its heading.
+          while (cells.length < header.length) cells.push([]);
+          rows.push(cells.slice(0, header.length));
+          cursor += 1;
+          continue;
+        }
+        // Absorb a single blank line between row groups. Without this the rest of
+        // the table leaks into the pane as raw "| 3 | 4 |" text.
+        if (
+          lines[cursor].trim() === "" &&
+          cursor + 1 < lines.length &&
+          TABLE_ROW.test(lines[cursor + 1])
+        ) {
+          cursor += 1;
+          continue;
+        }
+        break;
       }
       cursor -= 1;
       blocks.push({ type: "table", header, rows });
@@ -141,7 +169,12 @@ export function parseMarkdown(source: string): Block[] {
     }
 
     const heading = HEADING.exec(line);
-    if (heading) {
+    // "# of rows: 5,000" is an analyst writing "number of rows", not a heading.
+    // A real heading from the model is capitalised, so a single "#" followed by a
+    // lowercase word stays prose — otherwise the "#" is eaten and the sentence is
+    // both mis-styled and stripped of the word it stood for.
+    const isCountProse = heading !== null && heading[1].length === 1 && /^[a-z]/.test(heading[2]);
+    if (heading && !isCountProse) {
       flush();
       // Clamp: a pane this narrow has no room for h1/h2 scale.
       blocks.push({
@@ -157,7 +190,11 @@ export function parseMarkdown(source: string): Block[] {
       if (listOrdered === true) flushList();
       listOrdered = false;
       flushParagraph();
-      bullets.push(parseInline(bullet[1].trim()));
+      const content = (bullet[1] ?? "").trim();
+      // An empty marker keeps the list open but contributes no <li>.
+      if (content !== "") {
+        bullets.push(parseInline(content));
+      }
       continue;
     }
 
