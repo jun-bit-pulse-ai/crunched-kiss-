@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.env
+certs/*.pem
+certs/*.key
+certs/*.crt
+frontend/dist/
+.DS_Store
+*.log
+.office-addin-dev-certs/
