@@ -129,12 +129,83 @@ h1 {
   padding: 10px 12px;
   border-radius: 2px 10px 10px 10px;
   white-space: pre-wrap;
+  /* A1 ranges and long formulas must wrap rather than widen a narrow pane. */
+  overflow-wrap: anywhere;
 }
 
 .bubble p {
-  margin: 0;
+  /* Rendered Markdown can emit several paragraphs; the first/last resets below
+     keep the bubble's own padding from doubling up. */
+  margin: 0 0 0.6em;
   font-size: 14px;
   line-height: 1.45;
+}
+
+/* Rendered Markdown inside chat bubbles. */
+.bubble > :first-child {
+  margin-top: 0;
+}
+
+.bubble > :last-child {
+  margin-bottom: 0;
+}
+
+.md-heading {
+  margin: 0.6em 0 0.3em;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.md-list {
+  margin: 0.4em 0;
+  padding-left: 1.1em;
+}
+
+.md-list li {
+  margin: 0.15em 0;
+}
+
+.md-rule {
+  margin: 0.7em 0;
+  border: 0;
+  border-top: 1px solid currentColor;
+  opacity: 0.25;
+}
+
+.md-code {
+  padding: 0.05em 0.3em;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.18);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+}
+
+.md-table-wrap {
+  margin: 0.5em 0;
+  overflow-x: auto;
+}
+
+.md-table {
+  border-collapse: collapse;
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
+.md-table th,
+.md-table td {
+  padding: 0.25em 0.6em 0.25em 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md-table th {
+  font-weight: 600;
+  border-bottom: 1px solid currentColor;
+}
+
+.md-table tbody tr + tr td {
+  border-top: 1px solid rgba(127, 127, 127, 0.22);
 }
 
 .bubble-assistant,

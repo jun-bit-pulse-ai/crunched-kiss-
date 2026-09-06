@@ -7,7 +7,7 @@ The assignment is the chat loop, five tools, and the 2k / 8-round policy. Everyt
 | Hours 1–4 | Chat pane, five Office.js tools, FastAPI turn, 2k/8-round policy, one-origin proxy, million-cell demo |
 | Week one | Tool cards, bounded history and requests, undo, write-confirm, persistence, CI, and pre-Office.js bounds checks |
 | Optional polish | Formula explainer; useful, but outside the core loop and shipping argument |
-| Cut | Clarifying buttons, follow-up chips, Markdown, tour / ELI5, leftover plan docs |
+| Cut | Clarifying buttons, follow-up chips, tour / ELI5, leftover plan docs |
 
 ## Chat & Interaction
 
@@ -19,6 +19,7 @@ The assignment is the chat loop, five tools, and the 2k / 8-round policy. Everyt
 | Composer auto-focus | ✅ Shipped | Textarea focuses on mount and after "New chat" |
 | Demo prompt chips | ✅ Shipped | Empty-state suggestion buttons ("How big is this workbook?") |
 | Conversation persistence | ✅ Shipped | `localStorage` keyed by workbook name so chats survive reloads |
+| Markdown rendering | ✅ Shipped | Bold, bullets, headings, tables and inline code render as elements; the user's own text stays verbatim |
 
 ## AI & Tools
 
@@ -84,7 +85,6 @@ The assignment is the chat loop, five tools, and the 2k / 8-round policy. Everyt
 |---|---|
 | Clarifying-question buttons | Model can ask in prose; extra parser UI |
 | Follow-up suggestion chips | Empty-state demo chips already drive the walkthrough |
-| Markdown chat rendering | Plain text is enough for the demo |
 | Guided tour / ELI5 | Interview decoration |
 | Draft plan docs | They read as a second product next to the shipped README |
 

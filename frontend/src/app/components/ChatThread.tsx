@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import type { VisibleMessage } from "../types";
 import { writePreviewSummary } from "../writeConfirm";
 import { displayToolName } from "../toolCards";
+import { Markdown } from "./Markdown";
 
 type ChatThreadProps = {
   messages: VisibleMessage[];
@@ -53,9 +54,14 @@ export function ChatThread({ messages, status, onWriteDecision }: ChatThreadProp
             <span className="tool-card-name">{displayToolName(message.name)}</span>
             <span className="tool-card-summary">{message.summary}</span>
           </article>
+        ) : message.role === "user" ? (
+          // The user's own text is not Markdown — show it exactly as typed.
+          <article key={message.id} className="bubble bubble-user">
+            <p className="bubble-text">{message.text}</p>
+          </article>
         ) : (
           <article key={message.id} className={`bubble bubble-${message.role}`}>
-            <p className="bubble-text">{message.text}</p>
+            <Markdown text={message.text} />
           </article>
         )
       )}

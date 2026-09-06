@@ -17,6 +17,7 @@ An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Cla
 - **Tool visibility** — every Excel operation appears as a card in the chat thread so nothing happens invisibly
 - **Write confirm + undo** — Apply / Don't write before a cell changes; Undo restores the last snapshot
 - **Large-sheet safe** — reads are capped at 2,000 cells; metadata is O(sheets), not O(cells)
+- **Formatted replies** — the model's Markdown (bold, bullets, tables) renders as elements, never as raw syntax or injected HTML
 - **Live selection** — the pane shows your current Excel selection so you can say "this table"
 - **8-round cap** — per-question tool loop hard-limits at 8 rounds, then forces a text answer
 
@@ -233,7 +234,6 @@ The assignment is the loop, the policy, and a live demo. Everything after that i
 | Write-confirm dialogs (first cut) | Shipped as Apply / Don't write; a richer diff can wait |
 | Clarifying-question buttons | Extra UI; the model can ask in plain text |
 | Follow-up suggestion chips | Demo chips on the empty state are enough |
-| Markdown chat rendering | Plain text is enough for a 15-minute demo |
 | Guided tour / ELI5 | Interview decoration, not the assignment |
 | Draft plan docs (`FINAL_PLAN`, `IMPLEMENTATION_PLAN`, …) | They described a second product and contradicted the shipped loop |
 | Excel Online primary | Desktop Excel has the full Office.js API; Online is a subset |
@@ -304,7 +304,7 @@ See **What was cut** above. Writes pause for Apply / Don't write, Undo restores 
 | 2 | Chat UI, Office.js wrappers, and the first `read_range`. |
 | 3 | FastAPI backend, tool-use contract, and pytest suite. |
 | 4 | One-origin `/api` proxy, `find` tool, README, and the live demo. |
-| After | Tool cards, history window, request limits, undo, persistence, formula explainer, write-confirm, CI. Draft plan docs, clarifying buttons, follow-up chips, Markdown, tour, and ELI5 were cut for scope. |
+| After | Tool cards, history window, request limits, undo, persistence, formula explainer, write-confirm, CI, Markdown rendering. Draft plan docs, clarifying buttons, follow-up chips, tour, and ELI5 were cut for scope. |
 
 ---
 
