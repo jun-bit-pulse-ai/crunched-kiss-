@@ -146,7 +146,7 @@ flowchart TB
 
 ## Tools
 
-Each tool the model uses becomes a visible card in the chat thread. Nothing is invisible.
+Each tool the model uses becomes a visible card in the chat thread, so the demo can point at `list_workbook_meta` or `write_range` without opening the network tab.
 
 | Tool | What it does | Limit |
 |---|---|---|
@@ -249,13 +249,51 @@ This repo was built with trunk-based development: short-lived branches (`fix/ux-
 
 ---
 
-## 15-minute demo script
+## 15-minute demo
 
-1. **Open a large book** (`scripts/big.xlsx`). Ask "How big is this workbook?" Point at the `list_workbook_meta` card — not a full read of the Data sheet.
-2. **Error-check Budget.** "Find errors in the Budget sheet." Show that it finds the planted hard-coded cell and `#DIV/0!` via formulas.
-3. **Write one formula.** "Add a total row to Budget." Watch the `write_range` card, then show the cell in Excel.
-4. **Show the code.** Walk `agentClient.ts` (the loop), `agent.py` (one turn), `tools.py` (the contract). Emphasize: Excel never lives in Python.
-5. **Name what's missing.** Undo, persistence, formula explainer — all future work, not interview bar.
+A walkthrough that has been run end to end against the 1,000,000-cell fixture. Every observation below is what the pane actually shows. Capture frames with `scripts/capture-demo-screenshots.sh` if you want stills.
+
+### Before the call
+
+```bash
+# Fresh fixture: the demo writes to it, so regenerate to restore the planted errors
+python3 scripts/make_big_workbook.py
+open scripts/big.xlsx
+```
+
+Start the backend and dev server as in Setup, then open **Crunched** on the Home tab. The empty pane offers the three prompts below as buttons, so you can drive the whole demo without typing.
+
+`Budget` is six rows carrying two deliberate mistakes: `D4` is a hard-coded `1000` where its neighbours are formulas, and the `Per unit` row divides by empty cells, giving `#DIV/0!`. `Data` is 5,000 × 200.
+
+### 1. A million cells, one call (about 2 minutes)
+
+Ask **"How big is this workbook?"**
+
+One `list_workbook_meta` card appears, reading `Data 5000×200 · Budget 6×4`. There is no `read_range` card, because nothing read the Data sheet. Metadata is O(sheets), not O(cells).
+
+### 2. Finding the error (about 4 minutes)
+
+Ask **"Check the Budget sheet for errors."**
+
+Claude locates the labels, reads the small block with formulas, and reports the hard-coded `Budget!D4` and the `#DIV/0!` row. The `read_range` card is tagged `· formulas`.
+
+### 3. Fixing it (about 3 minutes)
+
+Ask **"Fix the hard-coded Gross profit in Budget!D4."**
+
+Cards appear in order: `list_workbook_meta`, `find` (`"Gross profit"`), `read_range` (`Budget!A1:D6 · formulas`), `write_range` (`Budget!D4`). Claude replies that `D4` now holds `=D2-D3`. Click the cell to confirm.
+
+### 4. The code (about 4 minutes)
+
+- `frontend/src/app/services/agentClient.ts` — the loop (max 8 rounds, then a text reply)
+- `backend/app/agent.py` — one stateless Claude turn
+- `backend/app/tools.py` — the closed tool list and the 2,000-cell policy
+
+Excel never lives in Python. Tools only run inside Excel's WebView.
+
+### 5. What is missing, and why (about 2 minutes)
+
+See **What was cut** above. The one worth naming aloud is the write-confirm dialog: writes apply immediately today. For a real user editing a live model that is the first thing to add, and it was cut deliberately rather than overlooked.
 
 ---
 
