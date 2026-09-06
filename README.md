@@ -4,6 +4,8 @@ An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Cla
 
 **Key idea:** The AI never holds the spreadsheet. It requests small pieces (a sheet list, one range, a search result), reasons about them, optionally writes back, and replies in plain English. This works on a 1-million-cell workbook as well as a small one — Claude is never shown more than a few thousand cells at a time.
 
+![Crunched in Excel's task pane — chat, tool cards, and suggestion chips](docs/screenshot.png)
+
 ---
 
 ## Features
@@ -11,6 +13,7 @@ An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Cla
 - **Chat interface** inside Excel's task pane — ask questions in natural language
 - **Tool-use loop** — Claude reads, searches, and writes cells through structured tools
 - **Clarifying questions** — when the model is unsure, it presents 2–4 multiple-choice buttons instead of making you type
+- **Suggested follow-ups** — after each reply, clickable chip buttons suggest what to ask next
 - **Tool visibility** — every Excel operation appears as a card in the chat thread so nothing happens invisibly
 - **Large-sheet safe** — reads are capped at 2,000 cells; metadata is O(sheets), not O(cells)
 - **Live selection** — the pane shows your current Excel selection so you can say "this table"
@@ -99,39 +102,38 @@ Look for **Crunched** on Excel's Home tab, or go to **Insert → Add-ins → My 
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Excel Desktop (macOS)                                      │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Task Pane WebView  https://localhost:3000          │   │
-│  │  • React + TypeScript                               │   │
-│  │  • Office.js (excel.ts) — the only Excel wrapper    │   │
-│  │  • runAgent() loops: user → Claude → tool → repeat  │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                           │                                 │
-│                           │ fetch /api/chat                 │
-│                           ▼                                 │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  webpack dev-server (HTTPS, trusted cert)           │   │
-│  │  proxies /api/* ────────────────────────────────────────┐│
-│  └─────────────────────────────────────────────────────┘  ││
-└────────────────────────────────────────────────────────────│┘
-                                                             │
-                                                             ▼
-                                               ┌─────────────────────────┐
-                                               │  uvicorn :8000 (HTTP)   │
-                                               │  FastAPI — one stateless│
-                                               │  Claude turn per call   │
-                                               │  • agent.py — LLM call  │
-                                               │  • tools.py — schemas   │
-                                               └─────────────────────────┘
-                                                            │
-                                                            ▼
-                                               ┌─────────────────────────┐
-                                               │  Anthropic API          │
-                                               │  tool_use → tool_result │
-                                               │  loop (max 8 rounds)    │
-                                               └─────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Excel["Excel Desktop (macOS)"]
+        subgraph Pane["Task Pane WebView — https://localhost:3000"]
+            UI["React + TypeScript"]
+            Office["Office.js (excel.ts)"]
+            Loop["runAgent() loop"]
+        end
+    end
+
+    subgraph Server["Backend"]
+        Webpack["webpack dev-server<br/>HTTPS + trusted cert"]
+        API["uvicorn :8000 (HTTP)<br/>FastAPI — stateless Claude turn"]
+        Agent["agent.py — LLM call"]
+        Tools["tools.py — schemas & policy"]
+    end
+
+    subgraph External["External"]
+        Claude["Anthropic API<br/>tool_use ↔ tool_result<br/>max 8 rounds"]
+    end
+
+    UI --> Loop
+    Loop --> Office
+    Loop -->|fetch /api/chat| Webpack
+    Webpack -->|proxy /api/*| API
+    API --> Agent
+    Agent --> Tools
+    Agent --> Claude
+
+    style Pane fill:#1c232d,stroke:#c4845a,color:#f3ede3
+    style API fill:#1c232d,stroke:#3d7a5a,color:#f3ede3
+    style Claude fill:#fff7ed,stroke:#ea580c,color:#7c2d12
 ```
 
 **Why stateless?** The backend holds no conversation state. The pane sends the full message history each time. This means you can restart the backend mid-chat and nothing breaks.
@@ -214,9 +216,8 @@ The original plan included a multi-tier orchestrator, LangGraph, streaming, auth
 ### What I'd add next (in order)
 
 1. **Undo stack** — Snapshot cells before `write_range`, expose an Undo button. Removes the fear of AI overwriting data.
-2. **Suggested follow-ups** — After each reply, show 2–3 chip buttons ("Show formulas", "Highlight errors"). Reuses the same parser/renderer as clarifying questions.
-3. **Conversation persistence** — `localStorage` keyed by workbook name so chats survive reloads.
-4. **Formula explainer** — Select a cell → "Explain this formula" → Claude breaks it down.
+2. **Conversation persistence** — `localStorage` keyed by workbook name so chats survive reloads.
+3. **Formula explainer** — Select a cell → "Explain this formula" → Claude breaks it down.
 
 ### What was deliberately left out
 
@@ -254,7 +255,7 @@ This repo was built with trunk-based development: short-lived branches (`fix/ux-
 | 2 | Chat UI, Office.js wrappers, and the first `read_range`. |
 | 3 | FastAPI backend, tool-use contract, and pytest suite. |
 | 4 | One-origin `/api` proxy, `find` tool, README, and the live demo. |
-| After | Markdown rendering (#17), history windowing (#18), tool cards (#14), clarifying questions (#21), UX quick wins (#24). |
+| After | Markdown rendering (#17), history windowing (#18), tool cards (#14), clarifying questions (#21), UX quick wins (#24), suggested follow-ups. |
 
 ---
 
