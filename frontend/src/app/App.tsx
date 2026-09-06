@@ -4,6 +4,7 @@ import { Composer } from "./components/Composer";
 import { PromptChips } from "./components/PromptChips";
 import { runAgent } from "./services/agentClient";
 import { listWorkbookMeta } from "./services/excel";
+import { toolCardsFromMessages } from "./toolCards";
 import type { ChatMessage, VisibleMessage, WorkbookHint } from "./types";
 
 const WELCOME =
@@ -16,7 +17,7 @@ function newId(): string {
 export default function App() {
   const [agentMessages, setAgentMessages] = useState<ChatMessage[]>([]);
   const [visible, setVisible] = useState<VisibleMessage[]>([
-    { id: "welcome", role: "assistant", text: WELCOME },
+    { id: "welcome", kind: "text", role: "assistant", text: WELCOME },
   ]);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +32,7 @@ export default function App() {
   async function send(text: string) {
     setError(null);
     setBusy(true);
-    setVisible((current) => [...current, { id: newId(), role: "user", text }]);
+    setVisible((current) => [...current, { id: newId(), kind: "text", role: "user", text }]);
     const nextHistory: ChatMessage[] = [...agentMessages, { role: "user", content: text }];
     try {
       let hint: WorkbookHint | undefined;
@@ -42,8 +43,13 @@ export default function App() {
         hint = undefined;
       }
       const result = await runAgent(nextHistory, hint, setStatus);
+      const cards = toolCardsFromMessages(result.messages, nextHistory.length);
       setAgentMessages(result.messages);
-      setVisible((current) => [...current, { id: newId(), role: "assistant", text: result.text }]);
+      setVisible((current) => [
+        ...current,
+        ...cards.map((card) => ({ kind: "tool" as const, ...card })),
+        { id: newId(), kind: "text", role: "assistant", text: result.text },
+      ]);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);

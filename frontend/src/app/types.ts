@@ -32,10 +32,21 @@ export type ChatResponse =
   | { type: "message"; text: string }
   | { type: "error"; message: string };
 
-export type VisibleMessage = {
+export type VisibleText = {
   id: string;
+  kind: "text";
   role: "user" | "assistant" | "system";
   text: string;
 };
+
+export type VisibleTool = {
+  id: string;
+  kind: "tool";
+  name: string;
+  summary: string;
+  error: boolean;
+};
+
+export type VisibleMessage = VisibleText | VisibleTool;
 
 export type WorkbookHint = string[];

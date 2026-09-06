@@ -119,6 +119,39 @@ h1 {
   font-size: 12px;
 }
 
+.tool-card {
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) 1fr;
+  gap: 4px 12px;
+  padding: 8px 10px;
+  background: var(--ink-2);
+  border: 1px solid #3a332c;
+  border-left: 2px solid var(--ledger);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tool-card-error {
+  border-left-color: var(--rust);
+}
+
+.tool-card-name {
+  color: var(--ledger);
+  letter-spacing: 0.03em;
+}
+
+.tool-card-error .tool-card-name {
+  color: var(--rust);
+}
+
+.tool-card-summary {
+  color: var(--paper-dim);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .banner {
   margin: 0 16px 8px;
   padding: 8px 10px;
