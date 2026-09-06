@@ -70,6 +70,29 @@ def test_force_text_omits_tools() -> None:
     assert "tools" not in client.messages.calls[0]
 
 
+def test_workbook_hint_control_characters_are_stripped() -> None:
+    client = FakeAnthropic(_text_response("ok"))
+    run_turn(
+        ChatRequest(
+            messages=[{"role": "user", "content": "hi"}],
+            workbook_hint=["Budget", "Data\ninject"],
+        ),
+        client=client,
+    )
+    system = client.messages.calls[0]["system"]
+    assert "Known sheet names: Budget, Datainject" in system
+    assert "\ninject" not in system
+
+
+def test_unknown_tool_names_are_dropped() -> None:
+    client = FakeAnthropic(_tool_response("toolu_x", "delete_workbook", {}))
+    result = run_turn(
+        ChatRequest(messages=[{"role": "user", "content": "wipe it"}]),
+        client=client,
+    )
+    assert result.type == "message"
+
+
 def test_missing_api_key_returns_error() -> None:
     result = run_turn(
         ChatRequest(messages=[{"role": "user", "content": "hi"}]),

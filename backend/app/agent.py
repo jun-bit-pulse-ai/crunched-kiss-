@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from app.config import settings
+from app.limits import sanitize_workbook_hints
 from app.models import ChatRequest, ChatResponse, ToolCall
-from app.tools import MAX_FIND_RESULTS, MAX_READ_CELLS, TOOLS
+from app.tools import MAX_FIND_RESULTS, MAX_READ_CELLS, TOOLS, tool_names
 
 SYSTEM_PROMPT = f"""You are Crunched, an AI analyst that lives in Excel.
 
@@ -70,8 +71,9 @@ def run_turn(
         client = Anthropic(api_key=key)
 
     system = SYSTEM_PROMPT
-    if request.workbook_hint:
-        system += "\nKnown sheet names: " + ", ".join(request.workbook_hint)
+    hints = sanitize_workbook_hints(request.workbook_hint)
+    if hints:
+        system += "\nKnown sheet names: " + ", ".join(hints)
 
     kwargs: dict[str, Any] = {
         "model": model or settings.anthropic_model,
@@ -84,10 +86,11 @@ def run_turn(
 
     response = client.messages.create(**kwargs)
     if getattr(response, "stop_reason", None) == "tool_use":
+        allowed = set(tool_names())
         tool_calls = [
             ToolCall(id=block.id, name=block.name, input=dict(block.input or {}))
             for block in response.content
-            if getattr(block, "type", None) == "tool_use"
+            if getattr(block, "type", None) == "tool_use" and block.name in allowed
         ]
         if tool_calls:
             return ChatResponse(type="tool_calls", tool_calls=tool_calls)
