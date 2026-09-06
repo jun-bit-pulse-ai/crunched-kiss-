@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { VisibleMessage } from "../types";
+import { Markdown } from "./Markdown";
 
 type ChatThreadProps = {
   messages: VisibleMessage[];
@@ -28,7 +29,7 @@ export function ChatThread({ messages, status }: ChatThreadProps) {
           </article>
         ) : (
           <article key={message.id} className={`bubble bubble-${message.role}`}>
-            <p>{message.text}</p>
+            <Markdown text={message.text} />
           </article>
         )
       )}
