@@ -3,6 +3,8 @@ import type { ChatMessage, VisibleMessage } from "./types";
 const STORAGE_KEY = "crunched_conversations";
 const SCHEMA_VERSION = 1;
 const MAX_STORED_WORKBOOKS = 5;
+const MAX_STORED_JSON_CHARS = 500_000;
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 type PersistedConversation = {
   version: number;
@@ -33,8 +35,100 @@ function defaultStore(): ConversationStore | null {
   return null;
 }
 
+function emptyConversations(): Record<string, PersistedConversation> {
+  return Object.create(null) as Record<string, PersistedConversation>;
+}
+
 function emptyData(): StorageData {
-  return { version: SCHEMA_VERSION, conversations: {}, lru: [] };
+  return { version: SCHEMA_VERSION, conversations: emptyConversations(), lru: [] };
+}
+
+export function isSafeStorageKey(key: string): boolean {
+  return key.length > 0 && !DANGEROUS_KEYS.has(key);
+}
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const rec = value as Record<string, unknown>;
+  if (rec.role !== "user" && rec.role !== "assistant") {
+    return false;
+  }
+  return typeof rec.content === "string" || Array.isArray(rec.content);
+}
+
+function isVisibleMessage(value: unknown): value is VisibleMessage {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const rec = value as Record<string, unknown>;
+  if (typeof rec.id !== "string") {
+    return false;
+  }
+  if (rec.kind === "text") {
+    return (
+      (rec.role === "user" || rec.role === "assistant" || rec.role === "system") &&
+      typeof rec.text === "string"
+    );
+  }
+  if (rec.kind === "tool") {
+    return typeof rec.name === "string" && typeof rec.summary === "string" && typeof rec.error === "boolean";
+  }
+  if (rec.kind === "write_confirm") {
+    return (
+      typeof rec.sheet === "string" &&
+      typeof rec.address === "string" &&
+      (rec.status === "pending" || rec.status === "applied" || rec.status === "declined")
+    );
+  }
+  return false;
+}
+
+function isPersistedConversation(value: unknown): value is PersistedConversation {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const rec = value as Record<string, unknown>;
+  return (
+    rec.version === SCHEMA_VERSION &&
+    typeof rec.savedAt === "string" &&
+    Array.isArray(rec.agentMessages) &&
+    rec.agentMessages.every(isChatMessage) &&
+    Array.isArray(rec.visible) &&
+    rec.visible.every(isVisibleMessage)
+  );
+}
+
+function parseStorage(raw: string): StorageData {
+  const parsed: unknown = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return emptyData();
+  }
+  const rec = parsed as Record<string, unknown>;
+  if (rec.version !== SCHEMA_VERSION) {
+    return emptyData();
+  }
+  if (!rec.conversations || typeof rec.conversations !== "object" || Array.isArray(rec.conversations)) {
+    return emptyData();
+  }
+  if (!Array.isArray(rec.lru) || !rec.lru.every((key) => typeof key === "string")) {
+    return emptyData();
+  }
+  const conversations = emptyConversations();
+  for (const [key, value] of Object.entries(rec.conversations as Record<string, unknown>)) {
+    if (!isSafeStorageKey(key) || !isPersistedConversation(value)) {
+      continue;
+    }
+    conversations[key] = value;
+  }
+  return {
+    version: SCHEMA_VERSION,
+    conversations,
+    lru: rec.lru.filter(
+      (key) => isSafeStorageKey(key) && Object.prototype.hasOwnProperty.call(conversations, key)
+    ),
+  };
 }
 
 function readStorage(store: ConversationStore | null): StorageData {
@@ -43,11 +137,7 @@ function readStorage(store: ConversationStore | null): StorageData {
     if (!raw) {
       return emptyData();
     }
-    const parsed = JSON.parse(raw) as StorageData;
-    if (parsed.version !== SCHEMA_VERSION) {
-      return emptyData();
-    }
-    return parsed;
+    return parseStorage(raw);
   } catch {
     return emptyData();
   }
@@ -55,7 +145,11 @@ function readStorage(store: ConversationStore | null): StorageData {
 
 function writeStorage(store: ConversationStore | null, data: StorageData): void {
   try {
-    store?.setItem(STORAGE_KEY, JSON.stringify(data));
+    const raw = JSON.stringify(data);
+    if (raw.length > MAX_STORED_JSON_CHARS) {
+      return;
+    }
+    store?.setItem(STORAGE_KEY, raw);
   } catch {
     // Storage full or private mode — silently fail.
   }
@@ -73,6 +167,9 @@ export function saveConversation(
   store: ConversationStore | null = defaultStore()
 ): void {
   const key = workbookKey(sheetNames);
+  if (!isSafeStorageKey(key)) {
+    return;
+  }
   const data = readStorage(store);
 
   data.conversations[key] = {
@@ -83,7 +180,7 @@ export function saveConversation(
   };
 
   // Update LRU: remove existing, push to front.
-  data.lru = data.lru.filter((k) => k !== key);
+  data.lru = data.lru.filter((item) => item !== key);
   data.lru.unshift(key);
 
   // Evict oldest if over limit.
@@ -102,8 +199,13 @@ export function loadConversation(
   store: ConversationStore | null = defaultStore()
 ): { agentMessages: ChatMessage[]; visible: VisibleMessage[] } | null {
   const key = workbookKey(sheetNames);
+  if (!isSafeStorageKey(key)) {
+    return null;
+  }
   const data = readStorage(store);
-  const conv = data.conversations[key];
+  const conv = Object.prototype.hasOwnProperty.call(data.conversations, key)
+    ? data.conversations[key]
+    : undefined;
   if (!conv || conv.version !== SCHEMA_VERSION) {
     return null;
   }
@@ -115,8 +217,11 @@ export function clearConversation(
   store: ConversationStore | null = defaultStore()
 ): void {
   const key = workbookKey(sheetNames);
+  if (!isSafeStorageKey(key)) {
+    return;
+  }
   const data = readStorage(store);
   delete data.conversations[key];
-  data.lru = data.lru.filter((k) => k !== key);
+  data.lru = data.lru.filter((item) => item !== key);
   writeStorage(store, data);
 }

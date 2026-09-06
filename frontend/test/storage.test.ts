@@ -17,6 +17,28 @@ function memoryStore(): ConversationStore {
   };
 }
 
+const memory = new Map<string, string>();
+(globalThis as { localStorage: Storage }).localStorage = {
+  get length() {
+    return memory.size;
+  },
+  clear() {
+    memory.clear();
+  },
+  getItem(key: string) {
+    return memory.get(key) ?? null;
+  },
+  setItem(key: string, value: string) {
+    memory.set(key, value);
+  },
+  removeItem(key: string) {
+    memory.delete(key);
+  },
+  key() {
+    return null;
+  },
+} as Storage;
+
 describe("storage", () => {
   it("round-trips a conversation", () => {
     const store = memoryStore();
@@ -59,5 +81,22 @@ describe("storage", () => {
     assert.strictEqual(loadConversation(["X"], null), null);
     saveConversation(["X"], [], [], null); // should not throw
     clearConversation(["X"], null); // should not throw
+  });
+
+  it("does not use a __proto__ sheet name as an object key", () => {
+    saveConversation(["__proto__"], [{ role: "user", content: "nope" }], []);
+    assert.strictEqual(loadConversation(["__proto__"]), null);
+  });
+
+  it("ignores tampered localStorage that is not a conversation blob", () => {
+    localStorage.setItem(
+      "crunched_conversations",
+      JSON.stringify({
+        version: 1,
+        conversations: { Budget: { version: 1, agentMessages: "boom", visible: [], savedAt: "x" } },
+        lru: ["Budget"],
+      })
+    );
+    assert.strictEqual(loadConversation(["Budget"]), null);
   });
 });
