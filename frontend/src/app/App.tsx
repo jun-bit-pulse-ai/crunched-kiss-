@@ -10,6 +10,7 @@ import { runAgent } from "./services/agentClient";
 import {
   canUndo,
   clearUndoStack,
+  getSelectedFormula,
   listWorkbookMeta,
   undoLastWrite,
   watchSelection,
@@ -181,6 +182,25 @@ export default function App() {
     }
   }
 
+  async function handleExplainFormula() {
+    setError(null);
+    setBusy(true);
+    try {
+      const formulaInfo = await getSelectedFormula();
+      if (!formulaInfo) {
+        setError("Select a cell containing a formula first.");
+        setBusy(false);
+        return;
+      }
+      const prompt = `Explain this Excel formula in plain English (what it does, step by step): ${formulaInfo.formula}`;
+      await send(prompt);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="shell">
       <header className="masthead">
@@ -248,6 +268,19 @@ export default function App() {
       ) : null}
       {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}
       <Composer disabled={busy} onSend={send} focusToken={focusToken} />
+      {selection ? (
+        <div className="explain-formula-bar">
+          <button
+            type="button"
+            className="explain-formula-button"
+            disabled={busy}
+            onClick={handleExplainFormula}
+            title="Explain the formula in the selected cell"
+          >
+            Explain formula in {selection}
+          </button>
+        </div>
+      ) : null}
       <GuidedTour
         open={tourOpen}
         onClose={(reason) => {

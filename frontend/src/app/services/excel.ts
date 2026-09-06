@@ -287,3 +287,20 @@ export async function dispatchExcelTool(
       throw new Error(`Unknown Excel tool: ${name}`);
   }
 }
+
+export async function getSelectedFormula(): Promise<{ sheet: string; address: string; formula: string } | null> {
+  return Excel.run(async (context) => {
+    const range = context.workbook.getSelectedRange();
+    range.load(["address", "formulas", "worksheet/name"]);
+    await context.sync();
+    const formula = (range.formulas as CellValue[][])[0]?.[0];
+    if (!formula || typeof formula !== "string" || formula[0] !== "=") {
+      return null;
+    }
+    return {
+      sheet: range.worksheet.name,
+      address: range.address,
+      formula,
+    };
+  });
+}

@@ -656,3 +656,36 @@ h1 {
   outline: 2px solid var(--ledger);
   outline-offset: 2px;
 }
+
+/* Explain formula bar */
+.explain-formula-bar {
+  display: flex;
+  justify-content: center;
+  padding: 0 16px 8px;
+}
+
+.explain-formula-button {
+  background: var(--ink-2);
+  color: var(--ledger);
+  border: 1px solid #3a332c;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.explain-formula-button:hover:not(:disabled) {
+  border-color: var(--ledger);
+  color: var(--paper);
+}
+
+.explain-formula-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.explain-formula-button:focus-visible {
+  outline: 2px solid var(--ledger);
+  outline-offset: 2px;
+}
