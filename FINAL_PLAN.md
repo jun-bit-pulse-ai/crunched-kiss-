@@ -102,26 +102,26 @@ Do these in order. Each task is one commit. Skip anything already true in the tr
 
 **Files:** [backend/app/tools.py](backend/app/tools.py), [frontend/src/app/services/excel.ts](frontend/src/app/services/excel.ts), [frontend/test/excelPolicy.test.ts](frontend/test/excelPolicy.test.ts)
 
-- [ ] Add `find(query, sheet?)` — max 50 addresses.
-- [ ] Extend meta/overview with a first-row header preview (cap columns).
-- [ ] Keep names in sync between Python schemas and `dispatchExcelTool`.
-- [ ] Commit: `feat: find tool and header preview for large books`
+- [x] Add `find(query, sheet?)` — max 50 addresses.
+- [x] Extend meta/overview with a first-row header preview (cap columns).
+- [x] Keep names in sync between Python schemas and `dispatchExcelTool`.
+- [x] Commit: `feat: find tool and header preview for large books`
 
 ### Task 4: Prove any size
 
 **Files:** Create [scripts/make_big_workbook.py](scripts/make_big_workbook.py)
 
-- [ ] Generate a ~1M-cell Data sheet plus a small Budget sheet with a planted formula error.
+- [x] Generate a ~1M-cell Data sheet plus a small Budget sheet with a planted formula error.
 - [ ] Hand-check in Excel: “How big is this workbook?” must not `read_range` the whole Data sheet.
-- [ ] Commit: `feat: 1M-cell workbook fixture`
+- [x] Commit: `feat: 1M-cell workbook fixture`
 
 ### Task 5: README = walkthrough
 
 **Files:** [README.md](README.md)
 
-- [ ] Setup: `.env`, certs, `dev-backend.sh`, `npm run start`, Mac WEF fallback (`~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/`).
-- [ ] Diagram, tool list, what was cut, 15-minute demo script (overview → Budget errors → one write).
-- [ ] Commit: `docs: setup, architecture, demo script`
+- [x] Setup: `.env`, certs, `dev-backend.sh`, `npm run start`, Mac WEF fallback (`~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/`).
+- [x] Diagram, tool list, what was cut, 15-minute demo script (overview → Budget errors → one write).
+- [x] Commit: `docs: setup, architecture, demo script`
 
 ---
 
@@ -137,12 +137,12 @@ Do these in order. Each task is one commit. Skip anything already true in the tr
 
 ## Success criteria
 
-- [ ] `main` has the working add-in; no required long-lived branch
+- [x] `main` has the working add-in; no required long-lived branch
 - [ ] Task pane opens in desktop Excel over trusted HTTPS
 - [ ] “What is in A1?” and “Write Hello to B1.” work with a live key
-- [ ] A huge used range does not send the whole range to the model
-- [ ] Backend tests pass without Excel
-- [ ] README is enough for the hiring call
+- [x] A huge used range does not send the whole range to the model
+- [x] Backend tests pass without Excel
+- [x] README is enough for the hiring call
 
 ---
 

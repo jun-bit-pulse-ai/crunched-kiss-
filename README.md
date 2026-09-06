@@ -58,7 +58,7 @@ The agent loop lives in the pane because tools can only run inside Excel’s Web
 
 ## Tools
 
-Written for the **post-#3** contract (`find` + header preview). Until [issue #3](https://github.com/jun-bit-pulse-ai/crunched-kiss-/issues/3) is on `main`, `find` and the header preview may be missing; `list_workbook_meta`, `read_range`, `write_range`, and `get_selection` already ship.
+`find` and the header preview are on `main` (issue #3).
 
 | Tool | Role |
 |---|---|
