@@ -26,6 +26,16 @@ function newId(): string {
 export default function App() {
   const [agentMessages, setAgentMessages] = useState<ChatMessage[]>([]);
   const [visible, setVisible] = useState<VisibleMessage[]>(initialVisible);
+  // Synchronous mirror of `visible`. React 18 batches state updates and may run a
+  // queued updater *after* the code that follows it, so reading the list back from
+  // inside an updater (or from the `visible` closure) can hand persist() a stale
+  // snapshot — the thread would save with the user's message but not the reply.
+  // Every write to the thread goes through commitVisible so this ref is always current.
+  const visibleRef = useRef<VisibleMessage[]>(visible);
+  function commitVisible(update: (current: VisibleMessage[]) => VisibleMessage[]) {
+    visibleRef.current = update(visibleRef.current);
+    setVisible(visibleRef.current);
+  }
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +58,7 @@ export default function App() {
         const restored = loadConversation(meta.sheets.map((sheet) => sheet.name));
         if (restored) {
           setAgentMessages(restored.agentMessages);
-          setVisible(restored.visible);
+          commitVisible(() => restored.visible);
         }
       } catch {
         // Workbook not available yet (e.g. browser preview).
@@ -76,7 +86,7 @@ export default function App() {
 
   function resetChat() {
     setAgentMessages([]);
-    setVisible(initialVisible());
+    commitVisible(() => initialVisible());
     setStatus(null);
     setError(null);
     setBusy(false);
@@ -95,7 +105,7 @@ export default function App() {
     const id = newId();
     return new Promise((resolve) => {
       writeResolvers.current.set(id, resolve);
-      setVisible((current) => [
+      commitVisible((current) => [
         ...current,
         {
           id,
@@ -112,7 +122,7 @@ export default function App() {
   function decideWrite(id: string, apply: boolean) {
     const resolve = writeResolvers.current.get(id);
     writeResolvers.current.delete(id);
-    setVisible((current) =>
+    commitVisible((current) =>
       current.map((message) =>
         message.kind === "write_confirm" && message.id === id
           ? { ...message, status: apply ? "applied" : "declined" }
@@ -125,11 +135,7 @@ export default function App() {
   async function send(text: string) {
     setError(null);
     setBusy(true);
-    let latestVisible: VisibleMessage[] = [];
-    setVisible((current) => {
-      latestVisible = [...current, { id: newId(), kind: "text", role: "user", text }];
-      return latestVisible;
-    });
+    commitVisible((current) => [...current, { id: newId(), kind: "text", role: "user", text }]);
     const nextHistory: ChatMessage[] = [...agentMessages, { role: "user", content: text }];
     let sheetNames: string[] = [];
     try {
@@ -147,16 +153,13 @@ export default function App() {
       });
       const cards = toolCardsFromMessages(result.messages, nextHistory.length);
       setAgentMessages(result.messages);
-      setVisible((current) => {
-        latestVisible = [
-          ...current,
-          ...cards.map((card) => ({ kind: "tool" as const, ...card })),
-          { id: newId(), kind: "text", role: "assistant", text: result.text },
-        ];
-        return latestVisible;
-      });
+      commitVisible((current) => [
+        ...current,
+        ...cards.map((card) => ({ kind: "tool" as const, ...card })),
+        { id: newId(), kind: "text", role: "assistant", text: result.text },
+      ]);
       if (sheetNames.length > 0) {
-        persist(sheetNames, result.messages, latestVisible);
+        persist(sheetNames, result.messages, visibleRef.current);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -174,7 +177,7 @@ export default function App() {
     try {
       const restored = await undoLastWrite();
       if (restored) {
-        setVisible((current) => [
+        commitVisible((current) => [
           ...current,
           {
             id: newId(),
