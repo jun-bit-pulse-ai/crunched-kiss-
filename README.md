@@ -80,7 +80,7 @@ The agent loop lives in the pane because tools can only run inside Excel’s Web
 
 ## Tools
 
-`find` and the header preview are on `main` (issue #3). Each executed tool stays in the thread as a card (name + a short result) so the demo can point at `list_workbook_meta` or `write_range` without opening the network tab.
+Each executed tool stays in the thread as a card (its name and a short result), so the demo can point at `list_workbook_meta` or `write_range` without opening the network tab.
 
 | Tool | Role |
 |---|---|
@@ -121,11 +121,73 @@ These cover the HTTP contract, tool schemas, cell/history caps, and API paths. O
 
 ## 15-minute demo
 
-1. Open a large book (or `scripts/big.xlsx`). Ask how big it is. Point at the `list_workbook_meta` card that stays in the thread — not a full read of Data.
-2. Error-check the Budget sheet. Show formulas and name the planted hard-coded cell and `#DIV/0!`.
-3. Write one formula with `write_range` and show the cell.
-4. Walk `agentClient.ts` (loop), `agent.py` (one turn), `tools.py` (contract). Excel never lives in Python.
-5. Name what is deliberately missing.
+A walkthrough that has been run end to end against the 1,000,000-cell fixture. Every observation below is what the pane actually shows.
+
+### Before the call
+
+```bash
+# Fresh fixture: the demo writes to it, so regenerate to restore the planted errors
+python3 scripts/make_big_workbook.py
+open scripts/big.xlsx
+```
+
+Start the backend and dev server as in Setup, then open **Crunched** on the Home tab. The empty pane offers the three prompts below as buttons, so you can drive the whole demo without typing.
+
+`Budget` is six rows carrying two deliberate mistakes: `D4` is a hard-coded `1000` where its neighbours are formulas, and the `Per unit` row divides by empty cells, giving `#DIV/0!`. `Data` is 5,000 × 200.
+
+### 1. A million cells, one call (about 2 minutes)
+
+Ask **"How big is this workbook?"**
+
+One `list_workbook_meta` card appears, reading `Data 5000×200 · Budget 6×4`, followed by a table:
+
+| Sheet | Used Range | Rows | Columns |
+|---|---|---|---|
+| Data | A1:GR5000 | 5,000 | 200 |
+| Budget | A1:D6 | 6 | 4 |
+
+**The point:** one metadata call answered a question about a million cells. There is no `read_range` card, because nothing read the Data sheet. Metadata is O(sheets), not O(cells), so this is as fast on a large book as a small one.
+
+### 2. Finding the error (about 4 minutes)
+
+Ask **"Check the Budget sheet for errors."**
+
+Claude locates the labels, reads the small block with formulas, and reports the hard-coded `Budget!D4` and the `#DIV/0!` row.
+
+**The point:** the `read_range` card is tagged `· formulas`. Error-checking a model needs the formula behind the number, not the number, and a hard-coded value where its neighbours compute is exactly the class of bug this catches.
+
+### 3. Fixing it (about 3 minutes)
+
+Ask **"Fix the hard-coded Gross profit in Budget!D4."**
+
+Four cards appear in order, which is the whole architecture on one screen:
+
+| Card | Shows |
+|---|---|
+| `list_workbook_meta` | `Data 5000×200 · Budget 6×4` |
+| `find` | `"Gross profit" · 1 match` |
+| `read_range` | `Budget!A1:D6 · formulas` |
+| `write_range` | `Budget!D4` |
+
+Claude replies that `Budget!D4` now holds `=D2-D3`. Click `D4` in the sheet: the formula bar confirms it, next to the genuine `=B2-B3` and `=C2-C3`.
+
+**The point:** `find` means the model never scans to locate a label, and the write is a formula rather than a pasted number, so the model stays live.
+
+Select a few cells anywhere and the pill above the composer reads **"Crunched can see Data!L1:N6 · 6 rows × 3 columns"**. Say "this selection" in a question and that is the range Claude gets.
+
+### 4. The code (about 4 minutes)
+
+Three files, in this order:
+
+- `frontend/src/app/services/agentClient.ts` — the loop. It calls the backend, runs whatever tools come back, feeds results in, repeats. Capped at 8 rounds, then forces a text reply.
+- `backend/app/agent.py` — one stateless Claude turn. No session, no graph, no memory of its own.
+- `backend/app/tools.py` — the closed tool list, and the 2,000-cell policy that keeps a huge sheet from ever reaching the model.
+
+**The point:** Excel never lives in Python. Tools can only run inside Excel's WebView, so the loop lives where the tools are, and the backend stays a pure function that is trivial to test with a mocked client.
+
+### 5. What is missing, and why (about 2 minutes)
+
+See **What was cut** above. The one worth naming aloud is the write-confirm dialog: writes apply immediately today. For a real user editing a live model that is the first thing to add, and it was cut deliberately rather than overlooked.
 
 ## Time log
 
