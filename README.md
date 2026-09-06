@@ -1,106 +1,176 @@
 # Crunched KISS
 
-An Excel task-pane agent for a four-hour take-home. You chat in the pane; Claude asks for workbook tools; Office.js is the only Excel runtime. Large sheets stay usable because the model sees addresses and samples, never a whole used range.
+An Excel task-pane agent for a four-hour take-home. You chat in the sidebar; Claude asks for workbook data through tools; Office.js is the only Excel runtime. Large sheets stay usable because the model sees addresses and samples, never a whole used range.
 
-## Setup on a Mac
+**Key idea:** The AI never holds the spreadsheet. It requests small pieces (a sheet list, one range, a search result), reasons about them, optionally writes back, and replies in plain English. This works on a 1-million-cell workbook as well as a small one — Claude is never shown more than a few thousand cells at a time.
 
-Prerequisites: Node 20–24, Python 3.12+, desktop Excel (Microsoft 365 / 16.x), and either [mkcert](https://github.com/FiloSottile/mkcert) or Microsoft’s `office-addin-dev-certs` (the setup script uses whichever is present).
+---
+
+## Features
+
+- **Chat interface** inside Excel's task pane — ask questions in natural language
+- **Tool-use loop** — Claude reads, searches, and writes cells through structured tools
+- **Clarifying questions** — when the model is unsure, it presents 2–4 multiple-choice buttons instead of making you type
+- **Tool visibility** — every Excel operation appears as a card in the chat thread so nothing happens invisibly
+- **Large-sheet safe** — reads are capped at 2,000 cells; metadata is O(sheets), not O(cells)
+- **Live selection** — the pane shows your current Excel selection so you can say "this table"
+- **8-round cap** — per-question tool loop hard-limits at 8 rounds, then forces a text answer
+
+---
+
+## Prerequisites
+
+- **macOS** with Apple Silicon or Intel (tested on macOS 14+)
+- **Node.js 20–24** and **npm 9–11**
+- **Python 3.12+**
+- **Microsoft Excel** desktop (Microsoft 365 / 16.x) — the add-in sideloads into desktop Excel only
+- **Anthropic API key** (Claude Sonnet or Haiku)
+- Either [**mkcert**](https://github.com/FiloSottile/mkcert) or Microsoft's `office-addin-dev-certs` (the setup script uses whichever is present)
+
+---
+
+## Setup (3 terminals)
+
+### Terminal 1 — Environment & Certs
 
 ```bash
-# 1. API key at the repo root (never commit this file)
+# Clone and enter the repo
+cd crunched-kiss
+
+# Create your API key file (never commit this)
 cp .env.example .env
-# Edit .env and set ANTHROPIC_API_KEY=sk-ant-...
+# Edit .env and set:
+#   ANTHROPIC_API_KEY=sk-ant-api03-...
+#   ANTHROPIC_MODEL=claude-sonnet-4-6   (or claude-sonnet-5-1)
 
-# 2. Trusted certs for Excel’s WebView (HTTPS only)
+# Generate trusted HTTPS certificates for Excel's WebView
 ./scripts/setup-certs.sh
+```
 
-# 3. Backend — plain HTTP on 127.0.0.1:8000, no certificate flags
+> **Why HTTPS?** Excel's WebView requires a trusted origin. Webpack serves the pane on `https://localhost:3000`. The backend itself is plain HTTP on `127.0.0.1:8000` — no cert flags needed there.
+
+### Terminal 2 — Backend
+
+```bash
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cd ..
 ./scripts/dev-backend.sh
-
-# 4. Add-in (second terminal)
-cd frontend
-npm install
-npm run dev-server
-
-# 5. Sideload into desktop Excel (third terminal, frontend/)
-npm start
 ```
 
-If `npm start` does not attach the pane, copy the manifest and restart Excel:
+The backend starts on `http://127.0.0.1:8000`. It exposes one endpoint:
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/chat` | One Claude turn — returns `tool_calls` or a `message` |
+
+### Terminal 3 — Frontend & Excel
 
 ```bash
-mkdir -p ~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/
-cp frontend/manifest.xml ~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/
+cd frontend
+npm install
+npm run dev-server   # https://localhost:3000 with HMR
 ```
 
-Then **Insert → Add-ins**, or look for **Crunched** on the Home tab.
+In a **fourth** terminal (or after `dev-server` is up):
 
-The pane talks only to `https://localhost:3000`. Webpack proxies `/api/*` to the HTTP backend. Do not point Excel at port 8000.
-
-## How it works (plain-language)
-
-```mermaid
-flowchart LR
-    A["🧑 You type a question<br/>in the Excel sidebar"] --> B["💬 The chat pane<br/>sends it to Claude"]
-    B --> C{"🧠 Claude decides:<br/>answer now, or<br/>look at the sheet first?"}
-    C -- "needs sheet data" --> D["📊 The add-in reads<br/>only the small part of the<br/>sheet Claude asked for<br/>(never the whole file)"]
-    D --> C
-    C -- "needs to change something" --> E["✍️ The add-in writes<br/>the values or formula<br/>Claude specified"]
-    E --> C
-    C -- "ready to answer" --> F["✅ Claude's answer<br/>appears in the chat"]
-
-    style A fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
-    style B fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
-    style C fill:#fff7ed,stroke:#ea580c,color:#7c2d12
-    style D fill:#ecfdf5,stroke:#059669,color:#064e3b
-    style E fill:#ecfdf5,stroke:#059669,color:#064e3b
-    style F fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
+```bash
+cd frontend
+npm start            # sideloads into Excel
 ```
 
-In short: you never hand Claude the spreadsheet file. You ask a question in the sidebar; Claude looks at only the small pieces of the sheet it actually needs (a sheet list, one range, a search result), reasons about them, optionally writes a value or formula back, and replies in plain English. This back-and-forth can repeat a few times per question, capped at 8 rounds so it can't loop forever. Every step Claude takes shows up as a small card in the thread, so nothing happens invisibly. That's also why it works on a spreadsheet with a million cells just as well as a small one — Claude is never shown more than a few thousand cells at a time.
+Look for **Crunched** on Excel's Home tab, or go to **Insert → Add-ins → My Add-ins**.
 
-## Architecture (technical)
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `npm start` does not show the pane | Copy the manifest manually: `mkdir -p ~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/ && cp frontend/manifest.xml ~/Library/Containers/com.microsoft.Excel/Data/Documents/wef/` then restart Excel. |
+| `NET::ERR_CERT_AUTHORITY_INVALID` in Excel | Re-run `./scripts/setup-certs.sh` and trust the generated cert in Keychain Access (Always Trust). |
+| Backend says `ANTHROPIC_API_KEY is not configured` | Check `.env` exists at repo root and `ANTHROPIC_API_KEY` is set (not commented). |
+| `Module not found` on `npm run dev-server` | Run `npm install` again; some devDependencies may have failed on first install. |
+| Excel shows a blank pane | Open Safari → Develop menu → inspect the WebView. Check the console for CORS or cert errors. |
+| Changes don't appear after git pull | The add-in caches aggressively. Click the `...` on the task pane → **Reload**, or restart Excel. |
+
+---
+
+## Architecture
 
 ```
-Excel WebView  https://localhost:3000
-  Chat UI  →  runAgent()  →  excel.ts (Office.js)
-       │ fetch /api/chat
-       ▼
-webpack (HTTPS, trusted)  ──proxy──▶  uvicorn :8000 (HTTP, localhost)
-                                          │
-                                          ▼
-                                    Anthropic tool-use
+┌─────────────────────────────────────────────────────────────┐
+│  Excel Desktop (macOS)                                      │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Task Pane WebView  https://localhost:3000          │   │
+│  │  • React + TypeScript                               │   │
+│  │  • Office.js (excel.ts) — the only Excel wrapper    │   │
+│  │  • runAgent() loops: user → Claude → tool → repeat  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                           │                                 │
+│                           │ fetch /api/chat                 │
+│                           ▼                                 │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  webpack dev-server (HTTPS, trusted cert)           │   │
+│  │  proxies /api/* ────────────────────────────────────────┐│
+│  └─────────────────────────────────────────────────────┘  ││
+└────────────────────────────────────────────────────────────│┘
+                                                             │
+                                                             ▼
+                                               ┌─────────────────────────┐
+                                               │  uvicorn :8000 (HTTP)   │
+                                               │  FastAPI — one stateless│
+                                               │  Claude turn per call   │
+                                               │  • agent.py — LLM call  │
+                                               │  • tools.py — schemas   │
+                                               └─────────────────────────┘
+                                                            │
+                                                            ▼
+                                               ┌─────────────────────────┐
+                                               │  Anthropic API          │
+                                               │  tool_use → tool_result │
+                                               │  loop (max 8 rounds)    │
+                                               └─────────────────────────┘
 ```
 
-The agent loop lives in the pane because tools can only run inside Excel’s WebView. The backend is one stateless Claude turn: it returns `tool_calls` or a final `message`. There is a single HTTPS origin so the WebView does not need a second trusted certificate or CORS to uvicorn.
+**Why stateless?** The backend holds no conversation state. The pane sends the full message history each time. This means you can restart the backend mid-chat and nothing breaks.
+
+**Why single-origin?** Webpack proxies `/api` to uvicorn, so the WebView talks to one HTTPS origin. No CORS headers, no second trusted certificate, no `Access-Control-Allow-Origin` gymnastics.
+
+---
 
 ## Tools
 
-`find` and the header preview are on `main` (issue #3). Each executed tool stays in the thread as a card (name + a short result) so the demo can point at `list_workbook_meta` or `write_range` without opening the network tab.
+Each tool the model uses becomes a visible card in the chat thread. Nothing is invisible.
 
-| Tool | Role |
-|---|---|
-| `list_workbook_meta` | Sheet names, used-range addresses, dimensions, and a first-row header preview |
-| `read_range` | Values and formulas for one address; capped at 2,000 cells |
-| `write_range` | Write a 2D values array; validated before `Excel.run` |
-| `get_selection` | Active range plus a small preview |
-| `find` | Locate a label; at most 50 addresses |
+| Tool | What it does | Limit |
+|---|---|---|
+| `list_workbook_meta` | Sheet names, used-range addresses, dimensions, header preview | O(sheets), not O(cells) |
+| `read_range` | Values and formulas for one address | 2,000 cell cap |
+| `write_range` | Writes a 2D array back to the sheet | Validated before `Excel.run` |
+| `get_selection` | The user's currently selected range | Small preview only |
+| `find` | Locate a label by text search | Max 50 addresses |
 
-Hard cap: **8 tool rounds** per user send, then `force_text`.
+**Hard cap:** 8 tool rounds per user message, then the pane forces a text-only reply.
 
-## Any workbook size
+---
 
-The model never loads the book. It asks for **addresses and samples**.
+## How the clarifying questions work
 
-- Call `list_workbook_meta` first (O(sheets), not O(cells)).
-- Use `find` to locate labels, then `read_range` on a small block.
-- Reads over 2,000 cells are truncated (or rejected) in the pane.
-- After 8 tool rounds the pane forces a text reply.
-- Generate a ~1M-cell fixture with `python3 scripts/make_big_workbook.py`. The xlsx is local and gitignored.
+When the model detects ambiguity, the system prompt instructs it to ask a single multiple-choice question formatted like:
+
+```
+Which sheet would you like to work with?
+
+A) Budget — the 7-row financial model
+B) Data — the 5,000-row metrics table
+C) A new sheet
+```
+
+The frontend parses `A) …` `B) …` lines and renders them as clickable buttons. Clicking sends the option text back as a user message. If the model doesn't format with lettered options, it falls back to plain text — no breakage.
+
+---
 
 ## Guided tour and Explain like I'm 5
 
@@ -110,38 +180,94 @@ The first time the pane opens in a session, a short skippable tour points at the
 
 Neither feature needs Excel to start: the pane mounts without `Office.onReady`, and the tour runs from there.
 
-## Tests
+---
+
+## Development
 
 ```bash
+# Backend tests (pytest)
 cd backend && .venv/bin/pytest -q
+
+# Frontend tests (mocha + ts-node)
 cd frontend && npm test
+
+# Generate a large test workbook
+python3 scripts/make_big_workbook.py   # → scripts/big.xlsx (gitignored)
+
+# Regenerate add-in icons
+python3 scripts/make_icons.py
 ```
 
-These cover the HTTP contract, tool schemas, cell/history caps, API paths, the ELI5 formatter, and tour-step config. Office.js and the React pane only run inside Excel, so they are hand-checked in the live demo rather than mocked.
+### Key files
 
-## What was cut
+| File | Role |
+|---|---|
+| `frontend/src/app/App.tsx` | Root component: message state, send loop, selection watcher |
+| `frontend/src/app/services/agentClient.ts` | Fetch loop: handles tool_calls ↔ tool_result for up to 8 rounds |
+| `frontend/src/app/services/excel.ts` | The only Office.js wrapper — all Excel I/O goes through here |
+| `frontend/src/app/components/ChatThread.tsx` | Renders messages, tool cards, and clarifying questions |
+| `frontend/src/app/toolCards.ts` | Human-readable names and summaries for tool cards |
+| `backend/app/agent.py` | One Claude turn: system prompt + tool schema + response parsing |
+| `backend/app/tools.py` | Tool definitions, schemas, and the 2,000-cell read policy |
+| `backend/app/main.py` | FastAPI app: CORS, `/api/chat`, `/api/health` |
 
-- Multi-tier Claude Code orchestrator as this product
-- LangGraph, streaming, conversation persistence, auth, Vercel
-- Reason / Agent Mode toggles
-- Write-confirm dialogs (first real-user follow-up, not the interview bar)
-- Excel Online as the primary host
+---
 
-## 15-minute demo
+## General Thoughts / Design Philosophy
 
-1. Open a large book (or `scripts/big.xlsx`). Ask how big it is. Point at the `list_workbook_meta` card that stays in the thread — not a full read of Data.
-2. Error-check the Budget sheet. Show formulas and name the planted hard-coded cell and `#DIV/0!`.
-3. Write one formula with `write_range` and show the cell.
-4. Walk `agentClient.ts` (loop), `agent.py` (one turn), `tools.py` (contract). Excel never lives in Python.
-5. Name what is deliberately missing.
+### Why KISS won
 
-## Time log
+The original plan included a multi-tier orchestrator, LangGraph, streaming, auth, Vercel deploy, and separate Agent/Reason modes. All of that was cut. What survived is a single Webpack pane, one FastAPI endpoint, and a loop that fits in two files (`agentClient.ts` and `agent.py`).
 
-Honest, short: Hour 1 was sideload + HTTPS. Hour 2 was chat UI and Office.js wrappers. Hour 3 was the FastAPI tool-use contract and tests. After that: one-origin `/api` proxy (#2), then this README (#5) while #3/`find` and #4/fixture land on other worktrees.
+**The reason it works:** Excel already has a runtime (Office.js). The AI doesn't need to own Excel — it just needs to ask for small pieces of data. The hard part is not the LLM; it's the policy that prevents the model from requesting a million cells. That policy lives in `tools.py` and is enforced in the pane, not the backend.
 
-## Layout
+### What I'd add next (in order)
 
-- `frontend/` — Office add-in. `excel.ts` is the only Office.js wrapper.
-- `backend/app/agent.py` — the only LLM call.
-- `backend/app/tools.py` — closed tool list and the 2,000-cell policy.
-- `certs/` — webpack HTTPS pair (gitignored). Uvicorn is HTTP on localhost.
+1. **Undo stack** — Snapshot cells before `write_range`, expose an Undo button. Removes the fear of AI overwriting data.
+2. **Suggested follow-ups** — After each reply, show 2–3 chip buttons ("Show formulas", "Highlight errors"). Reuses the same parser/renderer as clarifying questions.
+3. **Conversation persistence** — `localStorage` keyed by workbook name so chats survive reloads.
+4. **Formula explainer** — Select a cell → "Explain this formula" → Claude breaks it down.
+
+### What was deliberately left out
+
+| Cut | Why |
+|---|---|
+| Multi-agent orchestrator | One model turn is enough; Excel is the real agent |
+| LangGraph / LangChain | Adds complexity without adding capability for 5 tools |
+| Streaming responses | Office.js add-ins are small; full messages are fast enough |
+| Auth / login | It's a local desktop add-in; the API key is in `.env` |
+| Vercel / cloud deploy | The backend must talk to localhost Excel; cloud doesn't help |
+| Write-confirm dialogs | Good idea for real users, but adds UI friction for a demo |
+| Excel Online primary | Desktop Excel has the full Office.js API; Online is a subset |
+
+### Trunk-based workflow
+
+This repo was built with trunk-based development: short-lived branches (`fix/ux-gaps`, `feat/markdown-rendering`), squash-merged to `main` within minutes, not days. No long-lived feature branches. GitHub Issues were created as pick-up tasks so multiple agents could work in parallel. It worked well for a 4-hour sprint.
+
+---
+
+## 15-minute demo script
+
+1. **Open a large book** (`scripts/big.xlsx`). Ask "How big is this workbook?" Point at the `list_workbook_meta` card — not a full read of the Data sheet.
+2. **Error-check Budget.** "Find errors in the Budget sheet." Show that it finds the planted hard-coded cell and `#DIV/0!` via formulas.
+3. **Write one formula.** "Add a total row to Budget." Watch the `write_range` card, then show the cell in Excel.
+4. **Show the code.** Walk `agentClient.ts` (the loop), `agent.py` (one turn), `tools.py` (the contract). Emphasize: Excel never lives in Python.
+5. **Name what's missing.** Undo, persistence, formula explainer — all future work, not interview bar.
+
+---
+
+## Time log (honest)
+
+| Hour | What happened |
+|---|---|
+| 1 | Sideload + HTTPS certs. Excel's WebView is picky. |
+| 2 | Chat UI, Office.js wrappers, and the first `read_range`. |
+| 3 | FastAPI backend, tool-use contract, and pytest suite. |
+| 4 | One-origin `/api` proxy, `find` tool, README, and the live demo. |
+| After | Markdown rendering (#17), history windowing (#18), tool cards (#14), clarifying questions (#21), UX quick wins (#24). |
+
+---
+
+## License
+
+MIT. Built for a take-home interview, kept as a reference implementation.

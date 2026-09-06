@@ -25,6 +25,7 @@ export default function App() {
   const [selection, setSelection] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
   const [eli5Open, setEli5Open] = useState(false);
+  const [focusToken, setFocusToken] = useState(0);
   const showTourRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function App() {
   const conversationLabel = useMemo(() => {
     return agentMessages.some((message) => message.role === "user" && typeof message.content === "string")
       ? "Working conversation"
-      : "No new conversation";
+      : "New conversation";
   }, [agentMessages]);
 
   function resetChat() {
@@ -53,6 +54,7 @@ export default function App() {
     setStatus(null);
     setError(null);
     setBusy(false);
+    setFocusToken((token) => token + 1);
   }
 
   async function send(text: string) {
@@ -137,7 +139,7 @@ export default function App() {
           <Eli5Panel text={eli5Text} onClose={() => setEli5Open(false)} />
         </div>
       ) : null}
-      <ChatThread messages={visible} status={status} />
+      <ChatThread messages={visible} status={status} onOptionSelect={send} optionsDisabled={busy} />
       {error ? <div className="banner">{error}</div> : null}
       {selection ? (
         <p className="selection-pill" title="Say “this selection” and Crunched will read this range">
@@ -145,7 +147,7 @@ export default function App() {
         </p>
       ) : null}
       {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}
-      <Composer disabled={busy} onSend={send} />
+      <Composer disabled={busy} onSend={send} focusToken={focusToken} />
       <GuidedTour
         open={tourOpen}
         onClose={(reason) => {

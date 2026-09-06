@@ -1,12 +1,19 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type ComposerProps = {
   disabled?: boolean;
   onSend: (text: string) => void;
+  /** Bump this (e.g. on mount and after "New chat") to move keyboard focus into the textarea. */
+  focusToken?: number;
 };
 
-export function Composer({ disabled, onSend }: ComposerProps) {
+export function Composer({ disabled, onSend, focusToken }: ComposerProps) {
   const [value, setValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [focusToken]);
 
   function submit() {
     const text = value.trim();
@@ -27,10 +34,11 @@ export function Composer({ disabled, onSend }: ComposerProps) {
       }}
     >
       <textarea
+        ref={textareaRef}
         value={value}
         disabled={disabled}
         rows={2}
-        placeholder="Ask the model…"
+        placeholder="Ask Crunched about this workbook…"
         aria-label="Message"
         onChange={(event) => setValue(event.target.value)}
         onKeyDown={(event) => {
