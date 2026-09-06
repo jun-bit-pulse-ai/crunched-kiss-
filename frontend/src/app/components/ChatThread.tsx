@@ -9,9 +9,10 @@ type ChatThreadProps = {
 export function ChatThread({ messages, status }: ChatThreadProps) {
   const endRef = useRef<HTMLDivElement | null>(null);
 
+  // Key on length + status, not array identity, so this does not fire every render.
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, status]);
+  }, [messages.length, status]);
 
   return (
     <div className="thread" aria-live="polite">
