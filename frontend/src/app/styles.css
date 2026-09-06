@@ -142,9 +142,33 @@ h1 {
 
 .status {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--copper);
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 12px;
+}
+
+.status-spinner {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--copper);
+  animation: status-pulse 0.9s ease-in-out infinite;
+  flex: none;
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
 }
 
 .tool-card {
@@ -187,6 +211,13 @@ h1 {
   color: #f0c2bd;
   border: 1px solid var(--rust);
   font-size: 13px;
+}
+
+.selection-pill {
+  margin: 0 16px 8px;
+  color: var(--mute);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
 }
 
 .chips {
@@ -258,7 +289,8 @@ h1 {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rule-busy {
+  .rule-busy,
+  .status-spinner {
     animation: none;
   }
 }

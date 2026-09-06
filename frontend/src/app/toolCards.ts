@@ -34,6 +34,11 @@ function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+/** "· truncated" suffix when a read/search came back partial, so it's visible without asking the model to mention it. */
+function truncatedSuffix(payload: Record<string, unknown> | null): string {
+  return payload?.truncated === true ? " · truncated" : "";
+}
+
 function sheetSize(sheet: SheetMetaLike): string | undefined {
   const name = asString(sheet.name);
   if (!name) {
@@ -94,9 +99,10 @@ export function summarizeTool(
 
   if (name === "read_range") {
     const address = a1Address(input, payload);
+    const formulaTag = payload && formulasDiffer(payload) ? " · formulas" : "";
     return {
       name,
-      summary: payload && formulasDiffer(payload) ? `${address} · formulas` : address,
+      summary: `${address}${formulaTag}${truncatedSuffix(payload)}`,
       error: false,
     };
   }
@@ -109,11 +115,11 @@ export function summarizeTool(
     const query = asString(payload?.query) ?? asString(input.query) ?? "";
     const matches = asNumber(payload?.matches) ?? 0;
     const label = matches === 1 ? "1 match" : `${matches} matches`;
-    return { name, summary: `“${query}” · ${label}`, error: false };
+    return { name, summary: `“${query}” · ${label}${truncatedSuffix(payload)}`, error: false };
   }
 
   if (name === "get_selection") {
-    return { name, summary: a1Address(input, payload), error: false };
+    return { name, summary: `${a1Address(input, payload)}${truncatedSuffix(payload)}`, error: false };
   }
 
   return { name, summary: typeof parsed === "string" ? parsed : JSON.stringify(parsed), error: false };

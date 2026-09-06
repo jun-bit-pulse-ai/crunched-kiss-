@@ -174,6 +174,38 @@ export async function find(
   });
 }
 
+/**
+ * Watch the user's selection so the pane can show "Crunched sees: Sheet1!B2:D10" without
+ * the user having to ask. Returns an unsubscribe function; swallow watch errors since this
+ * is a UX nicety, not a tool the model depends on.
+ */
+export function watchSelection(onChange: (label: string | null) => void): () => void {
+  let disposed = false;
+
+  async function report() {
+    if (disposed) {
+      return;
+    }
+    try {
+      const selection = await getSelection();
+      onChange(`${selection.sheet}!${selection.address}`);
+    } catch {
+      onChange(null);
+    }
+  }
+
+  Excel.run(async (context) => {
+    context.workbook.onSelectionChanged.add(report);
+    await context.sync();
+  }).catch(() => onChange(null));
+
+  report();
+
+  return () => {
+    disposed = true;
+  };
+}
+
 export async function dispatchExcelTool(
   name: string,
   input: Record<string, unknown>

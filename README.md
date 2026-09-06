@@ -41,7 +41,29 @@ Then **Insert → Add-ins**, or look for **Crunched** on the Home tab.
 
 The pane talks only to `https://localhost:3000`. Webpack proxies `/api/*` to the HTTP backend. Do not point Excel at port 8000.
 
-## Architecture
+## How it works (plain-language)
+
+```mermaid
+flowchart LR
+    A["🧑 You type a question<br/>in the Excel sidebar"] --> B["💬 The chat pane<br/>sends it to Claude"]
+    B --> C{"🧠 Claude decides:<br/>answer now, or<br/>look at the sheet first?"}
+    C -- "needs sheet data" --> D["📊 The add-in reads<br/>only the small part of the<br/>sheet Claude asked for<br/>(never the whole file)"]
+    D --> C
+    C -- "needs to change something" --> E["✍️ The add-in writes<br/>the values or formula<br/>Claude specified"]
+    E --> C
+    C -- "ready to answer" --> F["✅ Claude's answer<br/>appears in the chat"]
+
+    style A fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
+    style B fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
+    style C fill:#fff7ed,stroke:#ea580c,color:#7c2d12
+    style D fill:#ecfdf5,stroke:#059669,color:#064e3b
+    style E fill:#ecfdf5,stroke:#059669,color:#064e3b
+    style F fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
+```
+
+In short: you never hand Claude the spreadsheet file. You ask a question in the sidebar; Claude looks at only the small pieces of the sheet it actually needs (a sheet list, one range, a search result), reasons about them, optionally writes a value or formula back, and replies in plain English. This back-and-forth can repeat a few times per question, capped at 8 rounds so it can't loop forever. Every step Claude takes shows up as a small card in the thread, so nothing happens invisibly. That's also why it works on a spreadsheet with a million cells just as well as a small one — Claude is never shown more than a few thousand cells at a time.
+
+## Architecture (technical)
 
 ```
 Excel WebView  https://localhost:3000

@@ -32,7 +32,12 @@ export function ChatThread({ messages, status }: ChatThreadProps) {
           </article>
         )
       )}
-      {status ? <p className="status">{status}</p> : null}
+      {status ? (
+        <p className="status">
+          <span className="status-spinner" aria-hidden="true" />
+          {status}
+        </p>
+      ) : null}
       <div ref={endRef} />
     </div>
   );

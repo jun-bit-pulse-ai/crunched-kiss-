@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChatThread } from "./components/ChatThread";
 import { Composer } from "./components/Composer";
 import { PromptChips } from "./components/PromptChips";
 import { initialVisible, showPromptChips } from "./demoPrompts";
 import { runAgent } from "./services/agentClient";
-import { listWorkbookMeta } from "./services/excel";
+import { listWorkbookMeta, watchSelection } from "./services/excel";
 import { toolCardsFromMessages } from "./toolCards";
 import type { ChatMessage, VisibleMessage, WorkbookHint } from "./types";
 
@@ -18,6 +18,12 @@ export default function App() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selection, setSelection] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = watchSelection(setSelection);
+    return unsubscribe;
+  }, []);
 
   const conversationLabel = useMemo(() => {
     return agentMessages.some((message) => message.role === "user" && typeof message.content === "string")
@@ -83,6 +89,11 @@ export default function App() {
       </header>
       <ChatThread messages={visible} status={status} />
       {error ? <div className="banner">{error}</div> : null}
+      {selection ? (
+        <p className="selection-pill" title="Crunched can see this range if you refer to “this selection”">
+          Selection: {selection}
+        </p>
+      ) : null}
       {showPromptChips(visible) ? <PromptChips disabled={busy} onPick={send} /> : null}
       <Composer disabled={busy} onSend={send} />
     </div>
