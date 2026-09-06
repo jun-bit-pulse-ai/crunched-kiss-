@@ -22,15 +22,50 @@ export function Markdown({ text }: { text: string }) {
                 <Spans spans={block.spans} />
               </h3>
             );
-          case "list":
-            return (
+          case "list": {
+            const items = block.items.map((item, itemIndex) => (
+              <li key={itemIndex}>
+                <Spans spans={item} />
+              </li>
+            ));
+            return block.ordered ? (
+              <ol key={index} className="md-list" start={block.start}>
+                {items}
+              </ol>
+            ) : (
               <ul key={index} className="md-list">
-                {block.items.map((item, itemIndex) => (
-                  <li key={itemIndex}>
-                    <Spans spans={item} />
-                  </li>
-                ))}
+                {items}
               </ul>
+            );
+          }
+          case "table":
+            return (
+              // The pane is narrow, so a wide table scrolls inside its own box
+              // instead of stretching the bubble.
+              <div key={index} className="md-table-wrap">
+                <table className="md-table">
+                  <thead>
+                    <tr>
+                      {block.header.map((cell, cellIndex) => (
+                        <th key={cellIndex}>
+                          <Spans spans={cell} />
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map((row, rowIndex) => (
+                      <tr key={rowIndex}>
+                        {row.map((cell, cellIndex) => (
+                          <td key={cellIndex}>
+                            <Spans spans={cell} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             );
           case "rule":
             return <hr key={index} className="md-rule" />;

@@ -54,6 +54,8 @@ describe("parseMarkdown", () => {
     assert.deepStrictEqual(parseMarkdown("- one\n- **two**"), [
       {
         type: "list",
+        ordered: false,
+        start: 1,
         items: [
           [{ type: "text", text: "one" }],
           [{ type: "bold", text: "two" }],
@@ -81,5 +83,71 @@ describe("parseMarkdown", () => {
 
   it("returns no blocks for empty or whitespace-only text", () => {
     assert.deepStrictEqual(parseMarkdown("   \n\n "), []);
+  });
+});
+
+describe("parseMarkdown tables", () => {
+  const table = [
+    "| Sheet | Used Range | Rows |",
+    "|-------|-----------|------|",
+    "| **Data** | A1:GR5000 | 5,000 |",
+    "| **Budget** | A1:D6 | 6 |",
+  ].join("\n");
+
+  it("reads the header row and the body rows", () => {
+    const [block] = parseMarkdown(table);
+    assert.strictEqual(block.type, "table");
+    if (block.type !== "table") return;
+    assert.deepStrictEqual(
+      block.header.map((cell) => cell.map((span) => span.text)),
+      [["Sheet"], ["Used Range"], ["Rows"]]
+    );
+    assert.strictEqual(block.rows.length, 2);
+    assert.deepStrictEqual(block.rows[0][0], [{ type: "bold", text: "Data" }]);
+    assert.deepStrictEqual(block.rows[1][2], [{ type: "text", text: "6" }]);
+  });
+
+  it("does not leave the delimiter row as visible text", () => {
+    const blocks = parseMarkdown(table);
+    assert.strictEqual(blocks.length, 1);
+  });
+
+  it("pads a short row so cells stay under the right heading", () => {
+    const [block] = parseMarkdown("| A | B |\n|---|---|\n| only |");
+    assert.strictEqual(block.type === "table" && block.rows[0].length, 2);
+  });
+
+  it("treats a pipe line without a delimiter row as an ordinary paragraph", () => {
+    const [block] = parseMarkdown("| not | a table |");
+    assert.strictEqual(block.type, "paragraph");
+  });
+
+  it("ends the table when normal text resumes", () => {
+    const blocks = parseMarkdown(`${table}\nAfter the table.`);
+    assert.deepStrictEqual(
+      blocks.map((b) => b.type),
+      ["table", "paragraph"]
+    );
+  });
+});
+
+describe("parseMarkdown ordered lists", () => {
+  it("keeps the numbers the model chose", () => {
+    const [block] = parseMarkdown("1. first\n2. **second**");
+    assert.strictEqual(block.type, "list");
+    if (block.type !== "list") return;
+    assert.strictEqual(block.ordered, true);
+    assert.strictEqual(block.start, 1);
+    assert.deepStrictEqual(block.items[1], [{ type: "bold", text: "second" }]);
+  });
+
+  it("keeps bullet lists unordered", () => {
+    const [block] = parseMarkdown("- one\n- two");
+    assert.strictEqual(block.type === "list" && block.ordered, false);
+  });
+
+  it("does not treat a year or a price as a list", () => {
+    const [block] = parseMarkdown("2024. was a strong year");
+    assert.strictEqual(block.type, "paragraph");
   });
 });
