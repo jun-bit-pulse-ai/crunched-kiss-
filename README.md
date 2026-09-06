@@ -102,6 +102,14 @@ The model never loads the book. It asks for **addresses and samples**.
 - After 8 tool rounds the pane forces a text reply.
 - Generate a ~1M-cell fixture with `python3 scripts/make_big_workbook.py`. The xlsx is local and gitignored.
 
+## Guided tour and Explain like I'm 5
+
+The first time the pane opens in a session, a short skippable tour points at the chat thread, the demo chips, the composer, peek cards, and **New chat**. Press Esc to skip, or use Next / Back. The composer stays usable — the tour never disables it. “Tour seen” lives in `sessionStorage`, so a new Excel session (or a new tab) gets the tour again. **Show tour** in the header replays it for a hiring-call reviewer.
+
+**Explain like I'm 5** (header) restates the latest assistant reply and any peek cards in tiny words. That formatter is local and deterministic — it maps tool names to kid sentences (`list_workbook_meta` → “I peeked at the sheet names… I did not read every cell.”) and strips Markdown from the last answer. It does not call Anthropic, so the backend contract is unchanged.
+
+Neither feature needs Excel to start: the pane mounts without `Office.onReady`, and the tour runs from there.
+
 ## Tests
 
 ```bash
@@ -109,7 +117,7 @@ cd backend && .venv/bin/pytest -q
 cd frontend && npm test
 ```
 
-These cover the HTTP contract, tool schemas, cell/history caps, and API paths. Office.js and the React pane only run inside Excel, so they are hand-checked in the live demo rather than mocked.
+These cover the HTTP contract, tool schemas, cell/history caps, API paths, the ELI5 formatter, and tour-step config. Office.js and the React pane only run inside Excel, so they are hand-checked in the live demo rather than mocked.
 
 ## What was cut
 
