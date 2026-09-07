@@ -76,6 +76,19 @@ export default function App() {
     }
   }
 
+  /**
+   * Save the thread when it changes outside a send(). Undo appends a note but
+   * leaves the model history alone, so without this the reopened thread still
+   * claimed a write had landed that the user had already undone.
+   */
+  function persistCurrentThread() {
+    listWorkbookMeta()
+      .then((meta) => persist(meta.sheets.map((sheet) => sheet.name), agentMessages, visibleRef.current))
+      .catch(() => {
+        // Workbook not available (browser preview) — nothing to key the save on.
+      });
+  }
+
   function resetChat() {
     setAgentMessages([]);
     commitVisible(() => initialVisible());
@@ -178,6 +191,7 @@ export default function App() {
             text: `Undo: restored ${restored.address} on ${restored.sheet}`,
           },
         ]);
+        persistCurrentThread();
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
