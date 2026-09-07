@@ -6,13 +6,16 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .env
-certs/*.pem
-certs/*.key
-certs/*.crt
+# Everything in certs/ is a local secret. Ignore the directory, not a list of
+# extensions: a backup like localhost-key.pem.bak slipped past the *.pem rule.
+certs/*
+!certs/.gitkeep
 frontend/dist/
 .DS_Store
 *.log
 .office-addin-dev-certs/
 scripts/*.xlsx
-# macOS Finder "duplicate" copies (foo 2.py)
-* 2.*
+# macOS / iCloud conflict copies. The suffix increments, so "foo 2.py" was only
+# the first generation; "package-lock 3.json" walked straight past the old rule.
+* [0-9].*
+* [0-9]/
