@@ -71,6 +71,10 @@ Each GitHub issue named the exact files its agent could touch, its acceptance
 test, and what it must not go near. Agents sharing a goal collide; agents sharing
 a *file* corrupt each other's work.
 
+The spec that came out of this stage is [FINAL_PLAN.md](FINAL_PLAN.md), kept in
+the repository as an archive alongside the two competing drafts it was
+synthesised from.
+
 Two things had to land **before** the fan-out:
 
 1. **The tool contract** — `backend/app/tools.py` (schemas) and
@@ -80,6 +84,11 @@ Two things had to land **before** the fan-out:
    there is one HTTPS origin, no CORS, and no second certificate.
 
 ### Stage 5 — Implement with parallel agents
+
+The prompt actually sent to the agents is kept verbatim in
+[TEAM_PROMPT.md](TEAM_PROMPT.md): a common section for all three, then one
+block per agent naming only its own issue, with the integrator role reserved for
+me. The plan it executed against is [FINAL_PLAN.md](FINAL_PLAN.md).
 
 Three issues, three agents, three worktrees, trunk-based with squash merges:
 
