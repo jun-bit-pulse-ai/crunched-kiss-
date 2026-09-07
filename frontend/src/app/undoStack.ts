@@ -1,10 +1,17 @@
 import type { CellValue } from "./excelPolicy";
 
-/** Snapshot of a range's values before a write, so it can be restored on undo. */
+/**
+ * Snapshot of a range before a write, so it can be restored on undo.
+ *
+ * These are *formulas*, not values. Reading `.values` gives the computed result,
+ * so undoing a write over "=B4/B2" would have restored the number it happened to
+ * show and destroyed the formula. Excel's `.formulas` returns the formula where
+ * there is one and the literal value otherwise, so it round-trips both.
+ */
 export type Snapshot = {
   sheet: string;
   address: string;
-  values: CellValue[][];
+  formulas: CellValue[][];
 };
 
 export const MAX_UNDO_DEPTH = 10;

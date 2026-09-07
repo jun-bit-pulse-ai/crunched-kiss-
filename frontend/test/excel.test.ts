@@ -132,7 +132,7 @@ describe("excel.ts Office.js policy", () => {
     assert.ok(!huge.loaded.has("values"));
   });
 
-  it("snapshots the prior values and writes the new ones in one Excel.run", async () => {
+  it("snapshots the prior formulas and writes the new ones in one Excel.run", async () => {
     const target = rangeOf("Budget!D4", [["1000"]]);
     let syncs = 0;
 
@@ -160,7 +160,7 @@ describe("excel.ts Office.js policy", () => {
 
     const result = await writeRange("Budget", "D4", [["=D2-D3"]]);
     assert.deepStrictEqual(result, { ok: true, sheet: "Budget", address: "Budget!D4" });
-    assert.deepStrictEqual(target.values, [["=D2-D3"]]);
+    assert.deepStrictEqual(target.formulas, [["=D2-D3"]]);
     assert.strictEqual(canUndo(), true);
     assert.strictEqual(syncs, 2);
   });
@@ -185,10 +185,10 @@ describe("excel.ts Office.js policy", () => {
 
     await assert.rejects(() => writeRange("Budget", "D4", [["=D2-D3"]]), /bridge down/);
     assert.strictEqual(canUndo(), false);
-    assert.deepStrictEqual(target.values, [["1000"]]);
+    assert.deepStrictEqual(target.formulas, [["1000"]]);
   });
 
-  it("undo restores the snapshotted values through Office.js", async () => {
+  it("undo restores the snapshotted formulas through Office.js", async () => {
     const cells = new Map<string, FakeRange>([["Budget!D4", rangeOf("Budget!D4", [["1000"]])]]);
 
     installExcel(async (batch) => {
@@ -217,11 +217,12 @@ describe("excel.ts Office.js policy", () => {
     });
 
     await writeRange("Budget", "D4", [["=D2-D3"]]);
-    assert.deepStrictEqual(cells.get("Budget!D4")?.values, [["=D2-D3"]]);
+    assert.deepStrictEqual(cells.get("Budget!D4")?.formulas, [["=D2-D3"]]);
 
     const undone = await undoLastWrite();
     assert.deepStrictEqual(undone, { sheet: "Budget", address: "Budget!D4" });
-    assert.deepStrictEqual(cells.get("Budget!D4")?.values, [["1000"]]);
+    // The cell comes back as what it was, not as the number it was showing.
+    assert.deepStrictEqual(cells.get("Budget!D4")?.formulas, [["1000"]]);
     assert.strictEqual(canUndo(), false);
   });
 });
