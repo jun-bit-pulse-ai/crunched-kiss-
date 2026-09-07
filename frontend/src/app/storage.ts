@@ -155,18 +155,31 @@ function writeStorage(store: ConversationStore | null, data: StorageData): void 
   }
 }
 
-/** Build a workbook key from sheet names (fallback when file name is unavailable). */
-export function workbookKey(sheetNames: string[]): string {
-  return [...sheetNames].sort().join("\n");
+/**
+ * Identify the workbook a conversation belongs to.
+ *
+ * Sheet names alone are not an identity: every blank workbook is called
+ * "Sheet1", so two of them shared a conversation, and adding a sheet to a real
+ * model silently orphaned its history. Prefer the document URL, which Excel
+ * gives us for any saved file, and keep sheet names only as the fallback for a
+ * workbook that has never been saved. The prefixes stop the two namespaces
+ * colliding.
+ */
+export function workbookKey(sheetNames: string[], documentUrl?: string | null): string {
+  if (documentUrl) {
+    return `url:${documentUrl}`;
+  }
+  return `sheets:${[...sheetNames].sort().join("\n")}`;
 }
 
 export function saveConversation(
   sheetNames: string[],
   agentMessages: ChatMessage[],
   visible: VisibleMessage[],
-  store: ConversationStore | null = defaultStore()
+  store: ConversationStore | null = defaultStore(),
+  documentUrl?: string | null
 ): void {
-  const key = workbookKey(sheetNames);
+  const key = workbookKey(sheetNames, documentUrl);
   if (!isSafeStorageKey(key)) {
     return;
   }
@@ -196,9 +209,10 @@ export function saveConversation(
 
 export function loadConversation(
   sheetNames: string[],
-  store: ConversationStore | null = defaultStore()
+  store: ConversationStore | null = defaultStore(),
+  documentUrl?: string | null
 ): { agentMessages: ChatMessage[]; visible: VisibleMessage[] } | null {
-  const key = workbookKey(sheetNames);
+  const key = workbookKey(sheetNames, documentUrl);
   if (!isSafeStorageKey(key)) {
     return null;
   }
@@ -214,9 +228,10 @@ export function loadConversation(
 
 export function clearConversation(
   sheetNames: string[],
-  store: ConversationStore | null = defaultStore()
+  store: ConversationStore | null = defaultStore(),
+  documentUrl?: string | null
 ): void {
-  const key = workbookKey(sheetNames);
+  const key = workbookKey(sheetNames, documentUrl);
   if (!isSafeStorageKey(key)) {
     return;
   }

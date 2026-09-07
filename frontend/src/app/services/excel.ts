@@ -274,6 +274,19 @@ export function watchSelection(onChange: (label: string | null) => void): () => 
   };
 }
 
+/**
+ * The workbook's file URL, used to key its saved conversation. Empty for a
+ * workbook that has never been saved, and absent outside Excel (browser
+ * preview), so callers fall back to sheet names.
+ */
+export function documentUrl(): string | null {
+  try {
+    return Office?.context?.document?.url || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function dispatchExcelTool(
   name: string,
   input: Record<string, unknown>
