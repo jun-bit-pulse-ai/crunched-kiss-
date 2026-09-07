@@ -5,15 +5,7 @@ import { PromptChips } from "./components/PromptChips";
 import { initialVisible, showPromptChips } from "./demoPrompts";
 import { buildExplainFormulaPrompt } from "./formulaExplainer";
 import { runAgent } from "./services/agentClient";
-import {
-  canUndo,
-  clearUndoStack,
-  getSelectedFormula,
-  listWorkbookMeta,
-  subscribeUndoStack,
-  undoLastWrite,
-  watchSelection,
-} from "./services/excel";
+import { canUndo, clearUndoStack, documentUrl, getSelectedFormula, listWorkbookMeta, subscribeUndoStack, undoLastWrite, watchSelection } from "./services/excel";
 import { clearConversation, loadConversation, saveConversation } from "./storage";
 import { toolCardsFromMessages } from "./toolCards";
 import type { ChatMessage, VisibleMessage, WorkbookHint } from "./types";
@@ -55,7 +47,7 @@ export default function App() {
       try {
         const meta = await listWorkbookMeta();
         if (cancelled) return;
-        const restored = loadConversation(meta.sheets.map((sheet) => sheet.name));
+        const restored = loadConversation(meta.sheets.map((sheet) => sheet.name), undefined, documentUrl());
         if (restored) {
           setAgentMessages(restored.agentMessages);
           commitVisible(() => restored.visible);
@@ -78,7 +70,7 @@ export default function App() {
 
   function persist(sheetNames: string[], messages: ChatMessage[], vis: VisibleMessage[]) {
     try {
-      saveConversation(sheetNames, messages, vis);
+      saveConversation(sheetNames, messages, vis, undefined, documentUrl());
     } catch {
       // Storage errors are non-fatal.
     }
@@ -95,7 +87,7 @@ export default function App() {
     writeResolvers.current.clear();
     clearUndoStack();
     listWorkbookMeta()
-      .then((meta) => clearConversation(meta.sheets.map((sheet) => sheet.name)))
+      .then((meta) => clearConversation(meta.sheets.map((sheet) => sheet.name), undefined, documentUrl()))
       .catch(() => {
         /* ignore */
       });
