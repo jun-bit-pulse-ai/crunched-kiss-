@@ -6,6 +6,7 @@ import {
   workbookKey,
   type ConversationStore,
 } from "../src/app/storage";
+import type { VisibleMessage } from "../src/app/types";
 
 function memoryStore(): ConversationStore {
   const data = new Map<string, string>();
@@ -158,5 +159,22 @@ describe("conversations do not leak between workbooks", () => {
     saveConversation(["Sheet1"], [{ role: "user", content: "workbook A" }], [], store, "file:///a.xlsx");
     const other = loadConversation(["Sheet1"], store, "file:///b.xlsx");
     assert.strictEqual(other, null);
+  });
+});
+
+describe("the undo note survives a reload", () => {
+  it("round-trips a system-role note alongside the rest of the thread", () => {
+    // Undo appends a system message and changes nothing in the model history,
+    // so the persistence layer has to carry it or the reopened thread claims a
+    // write landed that the user had already undone.
+    const store = memoryStore();
+    const thread: VisibleMessage[] = [
+      { id: "1", kind: "text", role: "user", text: "set D4 to 0" },
+      { id: "2", kind: "text", role: "assistant", text: "Done." },
+      { id: "3", kind: "text", role: "system", text: "Undo: restored Budget!D4 on Budget" },
+    ];
+    saveConversation(["Budget"], [{ role: "user", content: "set D4 to 0" }], thread, store);
+    const restored = loadConversation(["Budget"], store);
+    assert.deepStrictEqual(restored?.visible, thread);
   });
 });
