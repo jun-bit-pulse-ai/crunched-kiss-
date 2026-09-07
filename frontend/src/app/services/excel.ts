@@ -35,7 +35,9 @@ export async function undoLastWrite(): Promise<{ sheet: string; address: string 
   }
   await Excel.run(async (context) => {
     const range = context.workbook.worksheets.getItem(snapshot.sheet).getRange(snapshot.address);
-    range.values = snapshot.values;
+    // Restore formulas, not values: a cell that held "=B4/B2" must come back as
+    // that formula, not as the number it last evaluated to.
+    range.formulas = snapshot.formulas;
     await context.sync();
   });
   return { sheet: snapshot.sheet, address: snapshot.address };
@@ -144,14 +146,18 @@ export async function writeRange(sheet: string, address: string, values: unknown
     // and the undo snapshot cover every cell that is actually about to change.
     const anchor = context.workbook.worksheets.getItem(sheet).getRange(address);
     const target = cols > 0 ? anchor.getAbsoluteResizedRange(rows, cols) : anchor;
-    target.load(["values", "address"]);
+    // Snapshot formulas, not values: .values would capture computed results and
+    // undo would then overwrite live formulas with stale numbers.
+    target.load(["formulas", "address"]);
     await context.sync();
 
     // Snapshot and write in the same batch: if the write throws, sync() rejects
     // before the snapshot is ever pushed, so a failed write can't leave a phantom
     // undo entry.
-    pushSnapshot({ sheet, address: target.address, values: target.values as CellValue[][] });
-    target.values = values;
+    pushSnapshot({ sheet, address: target.address, formulas: target.formulas as CellValue[][] });
+    // Write through .formulas as well, so write and undo are symmetric: a string
+    // beginning with "=" becomes a formula, and a literal stays a literal.
+    target.formulas = values;
     await context.sync();
     return { ok: true, sheet, address: target.address };
   });

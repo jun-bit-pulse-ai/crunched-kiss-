@@ -9,7 +9,7 @@ import {
 } from "../src/app/undoStack";
 
 function snapshot(address: string) {
-  return { sheet: "Sheet1", address, values: [[address]] };
+  return { sheet: "Sheet1", address, formulas: [[address]] };
 }
 
 describe("undoStack", () => {
@@ -48,5 +48,24 @@ describe("undoStack", () => {
     clearUndoStack();
     assert.strictEqual(canUndo(), false);
     assert.strictEqual(undoDepth(), 0);
+  });
+});
+
+describe("snapshots carry formulas, not computed values", () => {
+  beforeEach(() => clearUndoStack());
+
+  it("round-trips a formula so undo can put it back", () => {
+    // The bug this guards: snapshotting `.values` captured the number a formula
+    // happened to show, so undo replaced "=B4/B2" with e.g. 0.6 and the model
+    // stopped being live.
+    pushSnapshot({ sheet: "Budget", address: "Budget!B5:D5", formulas: [["=B4/B2", "=C4/C2", "=D4/D2"]] });
+    assert.deepStrictEqual(popSnapshot()?.formulas, [["=B4/B2", "=C4/C2", "=D4/D2"]]);
+  });
+
+  it("round-trips literal values unchanged", () => {
+    // Excel's .formulas returns the literal where there is no formula, so plain
+    // numbers and text must survive the same path.
+    pushSnapshot({ sheet: "Budget", address: "Budget!D4", formulas: [[1000]] });
+    assert.deepStrictEqual(popSnapshot()?.formulas, [[1000]]);
   });
 });
