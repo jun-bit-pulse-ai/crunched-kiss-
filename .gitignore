@@ -19,3 +19,11 @@ scripts/*.xlsx
 # the first generation; "package-lock 3.json" walked straight past the old rule.
 * [0-9].*
 * [0-9]/
+
+# Internal working docs: superseded drafts and the interview score log. Kept on
+# disk for reference, but they are not part of the submission — the README's
+# "deliberately left out" table explains why the drafts were cut.
+docs/AGENT_WORKFLOW.md
+docs/FINAL_PLAN.md
+docs/TEAM_PROMPT.md
+docs/SCORE_HISTORY.md
